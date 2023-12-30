@@ -1,0 +1,19 @@
+[package]
+name = "pulsar"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { version = "0.12.1", features = ["file_watcher"] }
+notify = "6.1.1"
+rlua = "0.19.7"
+rodio = "0.17.3"
+atomic_float = "0.1.0"
+rtrb = "0.3.0"
+knyst = { version = "0.4.3", features = ["debug-warn-on-alloc", "jack"] }
+thiserror = "1.0.51"
+rayon = "1.8.0"
+bevy_egui = "0.24.0"
+bytemuck = "1.14.0"
