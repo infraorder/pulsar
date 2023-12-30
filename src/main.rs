@@ -85,7 +85,7 @@ fn main() {
                 })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        resolution: WindowResolution::new(1920., 1080.),
+                        resolution: WindowResolution::new(1280., 720.),
                         title: "pulsar • player".into(),
                         present_mode: PresentMode::Immediate,
                         fit_canvas_to_parent: true,
@@ -135,7 +135,7 @@ fn setup(
         },
         // TODO: figure out a way to get this camer
         BloomSettings {
-            intensity: 0.2,
+            intensity: 0.4,
             ..Default::default()
         },
         RenderLayers::from_layers(&[1]),
@@ -156,7 +156,7 @@ fn setup(
             ..Default::default()
         },
         BloomSettings {
-            intensity: 0.25,
+            intensity: 0.4,
             ..Default::default()
         },
         FeedbackBundle::default(),
