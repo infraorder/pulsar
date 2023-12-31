@@ -70,13 +70,9 @@ impl ReadStream {
     }
 
     pub fn _get_inactive_buf(&self) -> &StreamBuf {
-        let inactive_buf = match self.curr_chan.load(Ordering::Relaxed) {
-            1 => 0,
-            0 => 1,
-            _ => panic!("UNSUPPORTED BUF"),
-        };
+        let i = 1 - self.curr_chan.load(Ordering::Relaxed);
 
-        &self.stream_buf[inactive_buf]
+        &self.stream_buf[i]
     }
 
     pub fn get_active_buf(&self) -> &StreamBuf {
@@ -84,13 +80,9 @@ impl ReadStream {
     }
 
     pub fn swap_chan(&self) {
-        let next_chan = match self.curr_chan.load(Ordering::Relaxed) {
-            0 => 1,
-            1 => 0,
-            _ => panic!("UNSUPPORTED"),
-        };
+        let i = self.curr_chan.load(Ordering::Relaxed);
 
-        self.curr_chan.swap(next_chan, Ordering::Relaxed);
+        self.curr_chan.swap(1 - i, Ordering::Relaxed);
     }
 }
 
@@ -151,13 +143,9 @@ impl ReadControl {
     }
 
     pub fn get_inactive_buf(&self) -> &StreamBuf {
-        let inactive_buf = match self.curr_chan.load(Ordering::Relaxed) {
-            1 => 0,
-            0 => 1,
-            _ => panic!("UNSUPPORTED BUF"),
-        };
+        let i = 1 - self.curr_chan.load(Ordering::Relaxed);
 
-        &self.stream_buf[inactive_buf]
+        &self.stream_buf[i]
     }
 }
 
