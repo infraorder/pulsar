@@ -42,7 +42,7 @@ use dsp::oscillators::Oscillator;
 use dsp::read::Read;
 use dsp::{Chain, Dsp};
 use instancing::{InstanceData, InstanceMaterialData};
-use line::AudioLine;
+use line::{SplitLine, XYLine, SPLIT_LEN};
 use post::bloom::BloomSettings;
 use post::feedback::{FeedbackBundle, FeedbackSettings};
 use rayon::iter::{
@@ -163,7 +163,11 @@ fn setup(
         RenderLayers::from_layers(&[0]),
     ));
 
-    commands.spawn(AudioLine {
+    commands.spawn(XYLine {
+        ..Default::default()
+    });
+
+    commands.spawn(SplitLine {
         ..Default::default()
     });
 
@@ -212,7 +216,11 @@ fn change_frequency(q_control: Query<&AudioControl<Oscillator>>, time: Res<Time>
     }
 }
 
-fn plot_out(q_control: Query<&AudioControl<Read>>, mut lines: Query<&mut AudioLine>) {
+fn plot_out(
+    q_control: Query<&AudioControl<Read>>,
+    mut lines: Query<&mut XYLine>,
+    mut split_lines: Query<&mut SplitLine>,
+) {
     if let Ok(control) = q_control.get_single() {
         let last_out = control.last_out();
 
@@ -220,67 +228,88 @@ fn plot_out(q_control: Query<&AudioControl<Read>>, mut lines: Query<&mut AudioLi
             return;
         }
 
-        lines
-            .iter_mut()
-            .into_iter()
-            .for_each(|mut audio_line| match &last_out {
-                Some(last_out) => {
-                    let end_idx = match last_out.0 >= (audio_line.line[0].len() - 1) {
-                        true => {
-                            error!("BUFFER OVERFLOW");
-                            error!("BUFFER OVERFLOW");
-                            error!("BUFFER OVERFLOW"); // TODO: find a better way to display that this is happening
-                            error!("BUFFER OVERFLOW"); // as its a big fuck up when this happens
-                            error!("BUFFER OVERFLOW");
-                            audio_line.line[0].len() - 1
-                        }
-                        false => last_out.0,
-                    };
+        let mut split_line = split_lines.single_mut();
+        let mut audio_line = lines.single_mut();
 
-                    audio_line
-                        .line
-                        .par_iter_mut()
-                        .enumerate()
-                        .for_each(|(i, line)| {
-                            (0..end_idx).for_each(|j| {
-                                line[j] = last_out.1[i][j];
-                            });
+        match &last_out {
+            Some(last_out) => {
+                let end_idx = match last_out.0 >= (audio_line.buffer[0].len() - 1) {
+                    true => {
+                        error!("BUFFER OVERFLOW");
+                        error!("BUFFER OVERFLOW");
+                        error!("BUFFER OVERFLOW"); // TODO: find a better way to display that this is happening
+                        error!("BUFFER OVERFLOW"); // as its a big fuck up when this happens
+                        error!("BUFFER OVERFLOW");
+                        audio_line.buffer[0].len() - 1
+                    }
+                    false => last_out.0,
+                };
+
+                audio_line
+                    .buffer
+                    .par_iter_mut()
+                    .enumerate()
+                    .for_each(|(i, line)| {
+                        (0..end_idx).for_each(|j| {
+                            line[j] = last_out.1[i][j];
                         });
+                    });
 
-                    audio_line.index = end_idx;
-                }
-                None => (),
-            });
+                audio_line.index = end_idx;
+
+                split_line
+                    .buffer
+                    .par_iter_mut()
+                    .enumerate()
+                    .for_each(|(i, line)| {
+                        let idx = last_out.0;
+
+                        if idx > SPLIT_LEN {
+                            let idx = idx - SPLIT_LEN;
+                            line.clear();
+                            line.append(&mut last_out.1[i][idx..].to_vec());
+                            return ();
+                        }
+
+                        if line.len() + idx > SPLIT_LEN {
+                            line.drain(0..idx);
+                        }
+
+                        line.append(&mut last_out.1[i].to_vec())
+                    });
+            }
+            None => (),
+        }
     }
 }
 
-fn clear_lines(mut lines: Query<&mut AudioLine>) {
+fn clear_lines(mut lines: Query<&mut XYLine>) {
     lines.iter_mut().for_each(|mut line| line.index = 0);
 }
 
 fn line(
     mut gizmos: Gizmos,
     camera_query: Query<(&Camera, &GlobalTransform), Without<FeedbackSettings>>,
-    lines: Query<&AudioLine>,
+    lines: Query<&SplitLine>,
 ) {
     let line = lines.single();
     let (camera, camera_transform) = camera_query.single();
-    (0..line.line.len()).for_each(|i| {
+    (0..line.buffer.len()).for_each(|i| {
         gizmos.linestrip_2d(
-            to_vec2(camera, camera_transform, &line.line[i][0..line.index], &i),
+            to_vec2(camera, camera_transform, &line.buffer[i], &i),
             OVERLAY0.add(Color::rgb(2.0, 2.0, 2.0)),
         );
     });
 }
 
-fn oscil(lines: Query<&AudioLine>, mut instance_material_data: Query<&mut InstanceMaterialData>) {
+fn oscil(lines: Query<&XYLine>, mut instance_material_data: Query<&mut InstanceMaterialData>) {
     let l = lines.single();
     let mut mat_data = instance_material_data.get_single_mut().unwrap();
 
     mat_data.0 = (0..l.index)
         .into_par_iter()
         .map(|i| InstanceData {
-            position: Vec3::new(l.line[0][i] * 300., l.line[1][i] * 300., 0.0),
+            position: Vec3::new(l.buffer[0][i] * 300., l.buffer[1][i] * 300., 0.0),
             scale: 1.0,
             index: 1.0,
             color: SURFACE1.mul(7.0).as_rgba_f32(),
