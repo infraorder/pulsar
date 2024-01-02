@@ -22,7 +22,7 @@ use bevy::render::color::Color;
 // pub const OVERLAY1: Color = Color::rgb(127. / 255., 132. / 255., 156. / 255.);
 pub const OVERLAY0: Color = Color::rgb(108. / 255., 112. / 255., 134. / 255.);
 // pub const SURFACE2: Color = Color::rgb(88. / 255., 91. / 255., 112. / 255.);
-pub const SURFACE1: Color = Color::rgb(69. / 255., 71. / 255., 90. / 255.);
+// pub const SURFACE1: Color = Color::rgb(69. / 255., 71. / 255., 90. / 255.);
 // pub const SURFACE0: Color = Color::rgb(49. / 255., 50. / 255., 68. / 255.);
 pub const BASE: Color = Color::rgb(30. / 255., 30. / 255., 46. / 255.);
 // pub const MANTLE: Color = Color::rgb(24. / 255., 24. / 255., 37. / 255.);

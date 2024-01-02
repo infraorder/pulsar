@@ -1,17 +1,11 @@
-OUT0 = function(t, frequency, t_size)
-    local wave = W(math.sin, t, frequency * 0.5, t_size);
+FN = function(t, frequency, t_size)
+    local f = 120.0 * TAU;
 
-    wave = (wave * 0.5) + (W(math.cos, t, 3.0, t_size) * 0.5);
+    local lwave = W(math.sin, t, f, t_size);
+    lwave = lwave * (W(math.cos, t, f / 2.0, t_size) / 2.0);
 
-    return wave
-end
+    local rwave = W(math.cos, t, f, t_size);
+    rwave = rwave * (W(math.sin, t, f / 3.0, t_size) / 2.0);
 
-OUT1 = function(t, frequency, t_size)
-    local wave = W(math.cos, t, frequency, t_size);
-
-    wave = wave * W(math.sin, t, 3.0 * 0.75, t_size);
-
-    wave = wave * 0.5 + (W(math.sin, t, 1.0, t_size) * 0.5);
-
-    return wave
+    return lwave, rwave
 end

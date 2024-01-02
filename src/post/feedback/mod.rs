@@ -73,7 +73,6 @@ impl Plugin for FeedbackPlugin {
                 CORE_2D,
                 &[
                     core_2d::graph::node::MAIN_PASS,
-                    core_2d::graph::node::BLOOM,
                     draw_2d_graph::node::FEEDBACK,
                     core_2d::graph::node::TONEMAPPING,
                 ],

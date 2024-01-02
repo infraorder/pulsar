@@ -15,7 +15,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
-        view::ExtractedView,
+        view::{ExtractedView, RenderLayers},
         Render, RenderApp, RenderSet,
     },
     sprite::{
@@ -26,8 +26,11 @@ use bevy::{
 };
 use bytemuck::{Pod, Zeroable};
 
-#[derive(Component, Deref)]
-pub struct InstanceMaterialData(pub Vec<InstanceData>);
+#[derive(Component)]
+pub struct InstanceMaterialData {
+    pub data: Vec<InstanceData>,
+    pub layer: RenderLayers,
+}
 
 impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
@@ -35,7 +38,10 @@ impl ExtractComponent for InstanceMaterialData {
     type Out = Self;
 
     fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
-        Some(InstanceMaterialData(item.0.clone()))
+        Some(InstanceMaterialData {
+            data: item.data.clone(),
+            layer: item.layer.clone(),
+        })
     }
 }
 
@@ -79,16 +85,24 @@ fn queue_custom(
     pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<Mesh>>,
     render_mesh_instances: Res<RenderMesh2dInstances>,
-    material_meshes: Query<Entity, With<InstanceMaterialData>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent2d>)>,
+    material_meshes: Query<(Entity, &InstanceMaterialData)>,
+    mut views: Query<(
+        &ExtractedView,
+        &mut RenderPhase<Transparent2d>,
+        Option<&RenderLayers>,
+    )>,
 ) {
     let draw_custom = transparent_2d_draw_functions.read().id::<DrawCustom>();
 
     let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples());
 
-    for (view, mut transparent_phase) in &mut views {
+    for (view, mut transparent_phase, render_layers) in &mut views {
         let view_key = msaa_key | Mesh2dPipelineKey::from_hdr(view.hdr);
-        for entity in &material_meshes {
+        for (entity, instance) in &material_meshes {
+            let render_layers = render_layers.copied().unwrap_or_default();
+            if !instance.layer.intersects(&render_layers) {
+                continue;
+            }
             let Some(mesh_instance) = render_mesh_instances.get(&entity) else {
                 continue;
             };
@@ -126,12 +140,12 @@ fn prepare_instance_buffers(
     for (entity, instance_data) in &query {
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             label: Some("instance data buffer"),
-            contents: bytemuck::cast_slice(instance_data.as_slice()),
+            contents: bytemuck::cast_slice(instance_data.data.as_slice()),
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
         });
         commands.entity(entity).insert(InstanceBuffer {
             buffer,
-            length: instance_data.len(),
+            length: instance_data.data.len(),
         });
     }
 }
@@ -186,12 +200,12 @@ impl SpecializedMeshPipeline for CustomPipeline {
                 },
                 VertexAttribute {
                     format: VertexFormat::Float32,
-                    offset: 0,
+                    offset: VertexFormat::Float32x4.size(),
                     shader_location: 4,
                 },
                 VertexAttribute {
                     format: VertexFormat::Float32x4,
-                    offset: VertexFormat::Float32x4.size(),
+                    offset: VertexFormat::Float32x4.size() + VertexFormat::Float32.size(),
                     shader_location: 5,
                 },
             ],
