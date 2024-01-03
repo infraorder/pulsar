@@ -1,6 +1,7 @@
 # TODOS:
 1. make a sort of `AST` in order to parse large audio chains.
 2. figure out how to do asset reloading properly.
-3. make a config file that can hot reload.
+3. ~~make a config file that can hot reload. ✅~~
 4. sometimes some of the lua config stays after change, need to fix this.
 5. resize quad holding app on resize event
+6. fix to_stream method to be more generic

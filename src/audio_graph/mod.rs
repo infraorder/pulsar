@@ -1,20 +1,16 @@
 // #![warn(clippy::pedantic)]
 
-pub mod asset_reader;
-
 pub const AUDIO_BUFFER: usize = AUDIO_SIZE * 256;
 pub const AUDIO_SIZE: usize = 64;
 
 use bevy::{
     app::{PostUpdate, Update},
-    asset::Assets,
-    ecs::{
-        component::TableStorage,
-        system::{Res, ResMut},
-    },
+    asset::{AssetEvent, Assets},
+    ecs::{component::TableStorage, event::EventReader, system::Res},
+    log::info,
     prelude::{
         App, Commands, Component, Deref, DerefMut, Entity, NonSendMut, Plugin, Query, Without,
-    }, log::info,
+    },
 };
 
 use knyst::{
@@ -31,7 +27,7 @@ use crate::dsp::{
     Dsp,
 };
 
-use self::asset_reader::LuaAsset;
+use crate::asset_reader::LuaAsset;
 
 pub struct AudioPlugin;
 
@@ -147,8 +143,11 @@ pub trait Streamable: Send + Sync + 'static {
     type Stream: Gen + Send;
     type Control: Send + Sync;
 
-    fn to_stream(&mut self, k: &mut KnystCommands, lua: &Res<Assets<LuaAsset>>)
-        -> Option<AudioSendControl>;
+    fn to_stream(
+        &mut self,
+        k: &mut KnystCommands,
+        lua: &Res<Assets<LuaAsset>>,
+    ) -> Option<AudioSendControl>;
 }
 
 fn play_audio(
@@ -157,7 +156,6 @@ fn play_audio(
     lua_assets: Res<Assets<LuaAsset>>,
     mut audio_graph: NonSendMut<AudioOutput>,
 ) {
-
     for (entity, mut audio) in audio_query.iter_mut() {
         let (stream, control) = audio
             .chain
@@ -212,27 +210,31 @@ fn play_audio(
 fn update_audio(
     mut commands: Commands,
     audio_query: Query<(Entity, &Audio, &AudioId)>,
-    lua_assets: ResMut<Assets<LuaAsset>>,
+    mut lua_asset_event: EventReader<AssetEvent<LuaAsset>>,
     mut audio_graph: NonSendMut<AudioOutput>,
 ) {
-    for (entity, audio, audio_id) in audio_query.iter() {
-        audio
-            .chain
-            .items
-            .iter()
-            .for_each(|send_control| match send_control {
-                Dsp::Input(audio) => {
-                    if lua_assets
-                        .get(audio.lua_handle.clone())
-                        .unwrap()
-                        .script
-                        .ne(&audio.lua_string)
-                    {
-                        audio_graph.knyst.free_node(audio_id.0.clone());
-                        commands.entity(entity).remove::<AudioId>();
-                    }
+    for ev in lua_asset_event.read() {
+        match ev {
+            AssetEvent::Modified { id: asset_id } => {
+                for (entity, audio, audio_id) in audio_query.iter() {
+                    audio
+                        .chain
+                        .items
+                        .iter()
+                        .for_each(|send_control| match send_control {
+                            Dsp::Input(audio) => {
+                                if (audio.lua_handle.id()) == asset_id.to_owned() {
+                                    audio_graph.knyst.free_node(audio_id.0.clone());
+                                    commands.entity(entity).remove::<AudioId>();
+                                    commands.entity(entity).remove::<AudioControl<Read>>();
+                                    commands.entity(entity).remove::<AudioControl<Oscillator>>();
+                                }
+                            }
+                            _ => (),
+                        });
                 }
-                _ => (),
-            });
+            }
+            _ => return,
+        }
     }
 }

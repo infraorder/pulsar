@@ -20,7 +20,7 @@ use knyst::{
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rlua::{Function, Lua, Result};
 
-use crate::audio_graph::{asset_reader::LuaAsset, Streamable, AUDIO_SIZE};
+use crate::{audio_graph::{Streamable, AUDIO_SIZE}, asset_reader::LuaAsset};
 
 use super::AudioSendControl;
 

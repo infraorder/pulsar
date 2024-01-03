@@ -13,7 +13,7 @@ GP = function()
 
     if p == nil then
         P[W_I] = 0.0;
-        return p;
+        return 0.0;
     end
 
     return p;

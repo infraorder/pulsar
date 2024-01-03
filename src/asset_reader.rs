@@ -9,13 +9,15 @@ use bevy::{
 };
 use thiserror::Error;
 
+use crate::config::ConfigAsset;
+
 #[derive(Asset, TypePath, Debug)]
 pub struct LuaAsset {
     pub script: String,
 }
 
 #[derive(Default)]
-pub struct CustomAssetLoader;
+pub struct LuaLoader;
 
 /// Possible errors that can be produced by [`CustomAssetLoader`]
 #[non_exhaustive]
@@ -26,7 +28,7 @@ pub enum CustomAssetLoaderError {
     Io(#[from] std::io::Error),
 }
 
-impl AssetLoader for CustomAssetLoader {
+impl AssetLoader for LuaLoader {
     type Asset = LuaAsset;
     type Settings = ();
     type Error = CustomAssetLoaderError;
@@ -45,5 +47,32 @@ impl AssetLoader for CustomAssetLoader {
 
     fn extensions(&self) -> &[&str] {
         &["lua"]
+    }
+}
+
+#[derive(Default)]
+pub struct ConfigLoader;
+
+impl AssetLoader for ConfigLoader {
+    type Asset = ConfigAsset;
+    type Settings = ();
+    type Error = CustomAssetLoaderError;
+    fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader,
+        _settings: &'a (),
+        _load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        Box::pin(async move {
+            let mut script = "".to_string();
+            reader.read_to_string(&mut script).await?;
+            let config = toml::from_str::<ConfigAsset>(&script).unwrap();
+
+            Ok(config)
+        })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["toml"]
     }
 }

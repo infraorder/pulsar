@@ -3,7 +3,10 @@ use std::sync::{
     Arc,
 };
 
-use crate::audio_graph::{asset_reader::LuaAsset, Streamable, AUDIO_BUFFER, AUDIO_SIZE};
+use crate::{
+    asset_reader::LuaAsset,
+    audio_graph::{Streamable, AUDIO_BUFFER, AUDIO_SIZE},
+};
 use atomic_float::AtomicF32;
 use bevy::{asset::Assets, ecs::system::Res, log::info};
 use knyst::{
