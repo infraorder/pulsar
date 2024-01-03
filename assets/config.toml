@@ -5,14 +5,14 @@ height = 1440
 
 # LINE
 line_width = 1.0
-line_scale_z = 0.1
-line_scale_y = 25.0
+line_scale_z = 0.2
+line_scale_y = 50.0
 
-line_offset_x_0 = -0.97
-line_offset_y_0 = -0.9
+line_offset_x_0 = -0.98
+line_offset_y_0 = -0.94
 
-line_offset_x_1 = -0.97
-line_offset_y_1 = -0.8
+line_offset_x_1 = -0.98
+line_offset_y_1 = -0.84
 # \ LINE
 
 # XY
