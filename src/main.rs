@@ -16,6 +16,7 @@ use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::core_pipeline::core_2d::{Camera2d, Camera2dBundle};
 use bevy::core_pipeline::tonemapping::DebandDither;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+use bevy::ecs::bundle::Bundle;
 use bevy::ecs::component::Component;
 use bevy::ecs::event::EventReader;
 use bevy::ecs::query::With;
@@ -30,9 +31,9 @@ use bevy::render::camera::Camera;
 use bevy::render::color::Color;
 use bevy::render::mesh::{shape, Mesh};
 use bevy::render::view::{Msaa, NoFrustumCulling, RenderLayers};
-use bevy::sprite::Mesh2dHandle;
+use bevy::sprite::{Mesh2dHandle, SpriteSheetBundle, TextureAtlas, TextureAtlasSprite};
 use bevy::time::Time;
-use bevy::transform::components::GlobalTransform;
+use bevy::transform::components::{GlobalTransform, Transform};
 use bevy::{
     app::{Startup, Update},
     asset::{AssetApp, AssetServer, Handle},
@@ -58,6 +59,14 @@ const OSCIL_TARGET: u8 = 1;
 const UI_TARGET: u8 = 0;
 
 const FREQUENCY_TEMP: f32 = 144.0;
+
+#[derive(Bundle, Default)]
+pub struct InstancingBundle {
+    mesh: Mesh2dHandle,
+    spatial: SpatialBundle,
+    instance_material: InstanceMaterialData,
+    frustum_culling: NoFrustumCulling,
+}
 
 #[cfg(debug_assertions)]
 fn main() {
@@ -99,8 +108,8 @@ fn main() {
                             config.height as f32,
                         ),
                         title: "pulsar • player".into(),
-                        // mode: bevy::window::WindowMode::Fullscreen,
-                        present_mode: PresentMode::Immediate,
+                        mode: bevy::window::WindowMode::Fullscreen,
+                        present_mode: PresentMode::Mailbox,
                         fit_canvas_to_parent: true,
                         ..Default::default()
                     }),
@@ -196,6 +205,7 @@ fn setup_temp(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     let lua_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/wave.lua");
     let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/hood.lua");
@@ -228,21 +238,45 @@ fn setup_temp(
         ..Default::default()
     }));
 
-    commands.spawn((
-        Mesh2dHandle(mesh),
-        SpatialBundle::INHERITED_IDENTITY,
-        InstanceMaterialData {
+    let texture_handle = asset_server.load("sprites/sheet.png");
+    let texture_atlas = TextureAtlas::from_grid(
+        texture_handle,
+        Vec2::new(7., 9.),
+        2,
+        1,
+        None,
+        Some(Vec2::new(14., 0.)),
+    );
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
+    let spundle = CustomSpriteBundle {
+        texture_atlas: texture_atlas_handle,
+        sprite: TextureAtlasSprite::new(1),
+        ..Default::default()
+    };
+
+    // Use only the subset of sprites in the sheet that make up the run animation
+
+    commands.spawn((InstancingBundle {
+        mesh: Mesh2dHandle(mesh),
+        frustum_culling: NoFrustumCulling,
+        spatial: SpatialBundle::INHERITED_IDENTITY,
+        instance_material: InstanceMaterialData {
             data: vec![InstanceData {
                 color: Color::WHITE.as_linear_rgba_f32(),
                 index: 1.0,
-                position: Vec3::new(0.0, 0.0, 0.0),
+                position: Vec3::new(20.0, 0.0, 0.0),
                 scale: 1.0,
             }],
             layer: RenderLayers::layer(OSCIL_TARGET),
         },
-        NoFrustumCulling,
-        RenderLayers::layer(OSCIL_TARGET),
-    ));
+    },));
+}
+
+#[derive(Bundle, Clone, Default)]
+pub struct CustomSpriteBundle {
+    pub sprite: TextureAtlasSprite,
+    pub texture_atlas: Handle<TextureAtlas>,
 }
 
 fn change_frequency(q_control: Query<&AudioControl<Oscillator>>, time: Res<Time>) {

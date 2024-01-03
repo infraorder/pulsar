@@ -26,7 +26,7 @@ use bevy::{
 };
 use bytemuck::{Pod, Zeroable};
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct InstanceMaterialData {
     pub data: Vec<InstanceData>,
     pub layer: RenderLayers,

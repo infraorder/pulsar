@@ -4,7 +4,7 @@ pub const AUDIO_SIZE: usize = 64;
 use bevy::{
     app::{PostUpdate, Update},
     asset::{AssetEvent, Assets},
-    ecs::{component::TableStorage, event::EventReader, system::Res},
+    ecs::{component::TableStorage, event::EventReader, system::Res, query::With},
     prelude::{
         App, Commands, Component, Deref, DerefMut, Entity, NonSendMut, Plugin, Query, Without,
     },
@@ -192,13 +192,13 @@ fn play_audio(
 
 fn update_audio(
     mut commands: Commands,
-    audio_query: Query<(Entity, &Audio, &AudioId)>,
+    audio_query: Query<(Entity, &Audio, &AudioId), With<AudioControl<Oscillator>>>,
     mut lua_asset_event: EventReader<AssetEvent<LuaAsset>>,
     // audio_graph: NonSendMut<AudioOutput>,
 ) {
     for ev in lua_asset_event.read() {
         match ev {
-            AssetEvent::Modified { id: asset_id } => {
+            AssetEvent::LoadedWithDependencies { id: asset_id } => {
                 for (entity, audio, audio_id) in audio_query.iter() {
                     audio
                         .chain

@@ -30,7 +30,7 @@ fn feedback(@location(0) uv: vec2<f32>) -> Output {
     var history_color = sample_history(uv);
 
     // lower opacity of history color
-    history_color = history_color * 0.98;
+    history_color = history_color * 0.97;
 
     // history_color = mix(history_color, current_color, 0.00001);
 

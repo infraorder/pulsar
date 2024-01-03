@@ -6,10 +6,10 @@ line_scale_z = 0.2
 line_scale_y = 50.0
 
 line_offset_x_0 = -0.98
-line_offset_y_0 = -0.94
+line_offset_y_0 = -0.90
 
 line_offset_x_1 = -0.98
-line_offset_y_1 = -0.84
+line_offset_y_1 = -0.7
 
-xy_mult = 1152.0
+xy_mult = 600.0
 xy_rad = 3.0
