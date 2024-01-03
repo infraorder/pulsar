@@ -12,15 +12,17 @@ use bevy::{
     log::{info, trace},
 };
 use knyst::{
-    controller::KnystCommands,
-    graph::Gen,
+    gen::Gen,
     prelude::{GenContext, GenState},
     Resources,
 };
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rlua::{Function, Lua, Result};
 
-use crate::{audio_graph::{Streamable, AUDIO_SIZE}, asset_reader::LuaAsset};
+use crate::{
+    asset_reader::LuaAsset,
+    audio_graph::{Streamable, AUDIO_SIZE},
+};
 
 use super::AudioSendControl;
 
@@ -133,7 +135,7 @@ impl Streamable for Oscillator {
 
     fn to_stream(
         &mut self,
-        _knyst: &mut KnystCommands,
+        // _knyst: &mut KnystCommands,
         lua_assets: &Res<Assets<LuaAsset>>,
     ) -> Option<AudioSendControl> {
         let custom_asset = lua_assets.get(self.lua_handle.clone());

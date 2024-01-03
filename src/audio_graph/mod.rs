@@ -7,7 +7,6 @@ use bevy::{
     app::{PostUpdate, Update},
     asset::{AssetEvent, Assets},
     ecs::{component::TableStorage, event::EventReader, system::Res},
-    log::info,
     prelude::{
         App, Commands, Component, Deref, DerefMut, Entity, NonSendMut, Plugin, Query, Without,
     },
@@ -15,11 +14,11 @@ use bevy::{
 
 use knyst::{
     audio_backend::{CpalBackend, CpalBackendOptions},
-    controller::{print_error_handler, KnystCommands},
-    graph::{connection::InputBundle, Gen, NodeAddress},
-    inputs,
-    prelude::{AudioBackend, Graph, GraphSettings, ResourcesSettings},
-    Resources,
+    controller::KnystCommands,
+    gen::Gen,
+    graph::{connection::InputBundle, NodeId},
+    inputs, knyst_commands,
+    sphere::{KnystSphere, SphereSettings},
 };
 
 use crate::dsp::{
@@ -40,50 +39,40 @@ impl Plugin for AudioPlugin {
 }
 
 pub struct AudioOutput {
-    pub(crate) knyst: KnystCommands,
+    // pub(crate) knyst: KnystCommands,
     _backend: CpalBackend,
+    _error_receiver: std::sync::mpsc::Receiver<String>,
 }
 
 impl Default for AudioOutput {
     fn default() -> Self {
+        let (error_sender, _error_receiver) = std::sync::mpsc::channel();
+
         let mut backend = CpalBackend::new(CpalBackendOptions::default())
             .unwrap_or_else(|err| panic!("Cannot initialize cpal backend. Error: {err}"));
 
-        let sample_rate = backend.sample_rate() as f32;
-        let block_size = backend.block_size().unwrap_or(64);
-
-        let resources = Resources::new(ResourcesSettings::default());
-
-        info!("sample_rate = {}", backend.sample_rate());
-        println!("num outputs - {}", backend.num_outputs());
-
-        let graph = Graph::new(GraphSettings {
-            // num_outputs: backend.num_outputs(),
-            num_outputs: 2,
-            block_size,
-            sample_rate,
-            ..Default::default()
-        });
-
-        let knyst = backend
-            .start_processing(
-                graph,
-                resources,
-                knyst::graph::RunGraphSettings::default(),
-                Box::new(print_error_handler),
-            )
-            .unwrap_or_else(|err| panic!("Cannot start processing audio graph. Error: {err}"));
+        let _sphere = KnystSphere::start(
+            &mut backend,
+            SphereSettings {
+                num_inputs: 0,
+                num_outputs: 2,
+                ..Default::default()
+            },
+            Box::new(move |error| {
+                error_sender.send(format!("{error}")).unwrap();
+            }),
+        );
 
         Self {
-            knyst,
+            _error_receiver,
             _backend: backend,
         }
     }
 }
 
 impl AudioOutput {
-    fn play_stream(&mut self, stream: Box<Vec<Box<AudioSend>>>) -> Vec<NodeAddress> {
-        let mut chain_out: Vec<NodeAddress> = vec![];
+    fn play_stream(&mut self, stream: Box<Vec<Box<AudioSend>>>) -> Vec<NodeId> {
+        let mut chain_out: Vec<NodeId> = vec![];
 
         for stream in stream.into_iter() {
             match *stream {
@@ -94,16 +83,11 @@ impl AudioOutput {
             }
         }
 
-        self.knyst
-            .connect(chain_out.last().unwrap().to_graph_out().channels(2));
+        knyst_commands().connect(chain_out.last().unwrap().to_graph_out().channels(2));
         chain_out
     }
 
-    fn push(
-        &mut self,
-        stream: impl Gen + Send + 'static,
-        inputs: Option<&NodeAddress>,
-    ) -> NodeAddress {
+    fn push(&mut self, stream: impl Gen + Send + 'static, inputs: Option<&NodeId>) -> NodeId {
         let inputs = match inputs {
             None => inputs!(),
             Some(node_address) => {
@@ -111,7 +95,7 @@ impl AudioOutput {
             }
         };
 
-        self.knyst.push(stream, inputs)
+        knyst_commands().push(stream, inputs)
     }
 }
 
@@ -130,7 +114,7 @@ impl Audio {
 }
 
 #[derive(Component)]
-pub struct AudioId(pub NodeAddress);
+pub struct AudioId(pub NodeId);
 
 #[derive(Deref, DerefMut)]
 pub struct AudioControl<T: Streamable>(T::Control);
@@ -145,7 +129,7 @@ pub trait Streamable: Send + Sync + 'static {
 
     fn to_stream(
         &mut self,
-        k: &mut KnystCommands,
+        // k: &mut KnystCommands,
         lua: &Res<Assets<LuaAsset>>,
     ) -> Option<AudioSendControl>;
 }
@@ -162,8 +146,8 @@ fn play_audio(
             .items
             .iter_mut()
             .map(|i| match i {
-                Dsp::Input(i) => i.to_stream(&mut audio_graph.knyst, &lua_assets),
-                Dsp::Read(i) => i.to_stream(&mut audio_graph.knyst, &lua_assets),
+                Dsp::Input(i) => i.to_stream(&lua_assets),
+                Dsp::Read(i) => i.to_stream(&lua_assets),
             })
             .filter(|i| i.is_some())
             .map(|i| i.unwrap())
@@ -211,7 +195,7 @@ fn update_audio(
     mut commands: Commands,
     audio_query: Query<(Entity, &Audio, &AudioId)>,
     mut lua_asset_event: EventReader<AssetEvent<LuaAsset>>,
-    mut audio_graph: NonSendMut<AudioOutput>,
+    // audio_graph: NonSendMut<AudioOutput>,
 ) {
     for ev in lua_asset_event.read() {
         match ev {
@@ -224,7 +208,7 @@ fn update_audio(
                         .for_each(|send_control| match send_control {
                             Dsp::Input(audio) => {
                                 if (audio.lua_handle.id()) == asset_id.to_owned() {
-                                    audio_graph.knyst.free_node(audio_id.0.clone());
+                                    knyst_commands().free_node(audio_id.0.clone());
                                     commands.entity(entity).remove::<AudioId>();
                                     commands.entity(entity).remove::<AudioControl<Read>>();
                                     commands.entity(entity).remove::<AudioControl<Oscillator>>();

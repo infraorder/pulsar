@@ -10,10 +10,8 @@ use crate::{
 use atomic_float::AtomicF32;
 use bevy::{asset::Assets, ecs::system::Res, log::info};
 use knyst::{
-    controller::KnystCommands,
-    graph::Gen,
     prelude::{GenContext, GenState},
-    Resources,
+    Resources, gen::Gen,
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -158,7 +156,6 @@ impl Streamable for Read {
 
     fn to_stream(
         &mut self,
-        _knyst: &mut KnystCommands,
         _lua: &Res<Assets<LuaAsset>>,
     ) -> Option<AudioSendControl> {
         let curr_chan = Arc::new(AtomicUsize::new(0));

@@ -15,6 +15,7 @@ use asset_reader::{LuaAsset, LuaLoader};
 use audio_graph::{Audio, AudioControl, AudioPlugin};
 use bevy::app::PluginGroup;
 use bevy::asset::{AssetEvent, AssetPlugin, Assets};
+use bevy::core_pipeline::bloom::{BloomCompositeMode, BloomSettings};
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::core_pipeline::core_2d::{Camera2d, Camera2dBundle};
 use bevy::core_pipeline::tonemapping::DebandDither;
@@ -49,7 +50,6 @@ use dsp::read::Read;
 use dsp::{Chain, Dsp};
 use instancing::{InstanceData, InstanceMaterialData};
 use line::{SplitLine, XYLine, SPLIT_LEN};
-use post::bloom::{BloomCompositeMode, BloomSettings};
 use post::feedback::FeedbackBundle;
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
@@ -70,6 +70,7 @@ fn main() {
 
     use bevy::{
         app::PostUpdate,
+        core_pipeline::bloom::BloomPlugin,
         ecs::schedule::IntoSystemConfigs,
         render::texture::ImagePlugin,
         window::{PresentMode, Window, WindowPlugin, WindowResolution},
@@ -81,7 +82,7 @@ fn main() {
         asset_reader::ConfigLoader,
         fps::{fps_counter_showhide, fps_text_update_system},
         instancing::InstanceMaterial2dPlugin,
-        post::{bloom::BloomPlugin, feedback::FeedbackPlugin},
+        post::feedback::FeedbackPlugin,
     };
 
     let s = fs::read_to_string("assets/config.toml");

@@ -8,11 +8,16 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.12.1", features = ["file_watcher"] }
 notify = "6.1.1"
-rlua = { version = "0.19.7", default-features = false, features =  ["system-luajit"] }
+rlua = { version = "0.19.7", default-features = false, features = [
+    "system-luajit",
+] }
 rodio = "0.17.3"
 atomic_float = "0.1.0"
 rtrb = "0.3.0"
-knyst = { version = "0.4.3", features = ["debug-warn-on-alloc", "jack"] }
+# knyst = { version = "0.4.3", features = ["debug-warn-on-alloc", "jack"] }
+knyst = { git = "https://github.com/ErikNatanael/knyst.git", features = [
+    "debug-warn-on-alloc",
+] }
 thiserror = "1.0.51"
 rayon = "1.8.0"
 bevy_egui = "0.24.0"
