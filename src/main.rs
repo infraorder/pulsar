@@ -1,4 +1,3 @@
-mod asset_reader;
 mod components;
 mod dsp;
 mod egui;
