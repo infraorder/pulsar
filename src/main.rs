@@ -70,6 +70,7 @@ fn main() {
 
     use bevy::{
         app::PostUpdate,
+        ecs::schedule::IntoSystemConfigs,
         render::texture::ImagePlugin,
         window::{PresentMode, Window, WindowPlugin, WindowResolution},
     };
@@ -123,14 +124,19 @@ fn main() {
         .init_asset_loader::<LuaLoader>()
         .init_asset::<ConfigAsset>()
         .init_asset_loader::<ConfigLoader>()
+        // setup
         .add_systems(Startup, (setup, setup_fps_counter))
+        // temporary setup will be removed in future
         .add_systems(Startup, setup_temp)
+        // temporary system
         .add_systems(Update, change_frequency)
-        .add_systems(Update, plot_out)
-        .add_systems(Update, (oscil, line))
-        .add_systems(Update, (fps_text_update_system, fps_counter_showhide))
-        .add_systems(PostUpdate, update_config)
+        // main drawing systems
+        .add_systems(Update, (plot_out, (oscil, line)).chain())
         .add_systems(PostUpdate, clear_lines)
+        // fps counter systems
+        .add_systems(Update, (fps_text_update_system, fps_counter_showhide))
+        // update config
+        .add_systems(PostUpdate, update_config)
         .run()
 }
 
