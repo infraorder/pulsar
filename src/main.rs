@@ -76,7 +76,7 @@ fn main() {
         app::PostUpdate,
         ecs::schedule::IntoSystemConfigs,
         render::texture::ImagePlugin,
-        window::{PresentMode, Window, WindowPlugin, WindowResolution},
+        window::{PresentMode, Window, WindowPlugin, WindowResolution, WindowMode},
     };
     use bevy_egui::EguiPlugin;
 
@@ -108,8 +108,8 @@ fn main() {
                             config.height as f32,
                         ),
                         title: "pulsar • player".into(),
-                        mode: bevy::window::WindowMode::Fullscreen,
-                        present_mode: PresentMode::Mailbox,
+                        mode: WindowMode::BorderlessFullscreen,
+                        present_mode: PresentMode::Fifo,
                         fit_canvas_to_parent: true,
                         ..Default::default()
                     }),

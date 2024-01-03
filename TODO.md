@@ -4,3 +4,4 @@
 3. ~~make a config file that can hot reload. ✅~~
 4. sometimes some of the lua config stays after change, need to fix this.
 5. fix to_stream method to be more generic
+6. fix lua-jit on windows install
