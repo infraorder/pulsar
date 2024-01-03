@@ -2,6 +2,7 @@ mod components;
 mod dsp;
 mod egui;
 mod instancing;
+mod lua;
 mod post;
 mod systems;
 mod util;
@@ -62,7 +63,6 @@ fn main() {
 
     use bevy::{
         app::PostUpdate,
-        core_pipeline::bloom::BloomPlugin,
         ecs::schedule::IntoSystemConfigs,
         render::texture::ImagePlugin,
         window::{PresentMode, Window, WindowPlugin, WindowResolution},
@@ -105,7 +105,6 @@ fn main() {
                     ..Default::default()
                 }),
             FrameTimeDiagnosticsPlugin::default(),
-            BloomPlugin,
             FeedbackPlugin,
             EguiPlugin,
             InstanceMaterial2dPlugin,
@@ -197,8 +196,8 @@ fn setup_temp(
     asset_server: Res<AssetServer>,
     config: Res<ConfigAsset>,
 ) {
-    let lua_handle: Handle<LuaAsset> = asset_server.load("lua/wave.lua");
-    let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/util.lua");
+    let lua_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/wave.lua");
+    let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/hood.lua");
 
     let oscil = Oscillator {
         frequency_hz: config.frequency,

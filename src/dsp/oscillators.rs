@@ -1,6 +1,6 @@
 use core::panic;
 use std::{
-    f32::consts::{PI, TAU},
+    f32::consts::TAU,
     sync::{atomic::Ordering, Arc},
     time::{Duration, Instant},
 };
@@ -19,9 +19,15 @@ use knyst::{
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rlua::{Function, Lua, Result};
 
-use crate::components::lua::LuaAsset;
+use crate::{
+    components::lua::LuaAsset,
+    lua::{init_instance, load_fn},
+};
 
-use super::{AudioSendControl, audio_graph::{AUDIO_SIZE, Streamable}};
+use super::{
+    audio_graph::{Streamable, AUDIO_SIZE},
+    AudioSendControl,
+};
 
 const OUT: &str = "OUT_FN";
 
@@ -153,15 +159,14 @@ impl Streamable for Oscillator {
             return None;
         }
 
-        let utils = utils.unwrap();
+        let hood = utils.unwrap();
 
-        info!("Custom asset loaded: {:?}", utils.script);
+        info!("Custom asset loaded: {:?}", hood.script);
 
         let luas = [(); AUDIO_SIZE].map(|_| {
-            let lua = Lua::new();
-            load_globals(&lua);
-            load_fn(&lua, &utils.script);
-            load_fn(&lua, &custom_asset.script);
+            let lua = init_instance();
+            load_fn(&lua, "lua_pulse", &hood.script);
+            load_fn(&lua, "lua_pulse", &custom_asset.script);
 
             Box::new(lua)
         });
@@ -209,19 +214,4 @@ fn norm(input: f32) -> f32 {
         x if x < -1. => -1.,
         _ => panic!("should not get here"),
     }
-}
-
-fn load_globals(lua: &Lua) {
-    lua.context(|lua_ctx| {
-        let globals = lua_ctx.globals();
-
-        globals.set("pi", PI).unwrap();
-        globals.set("tau", TAU).unwrap();
-    });
-}
-
-fn load_fn(lua: &Lua, method: &str) {
-    lua.context(|lua_ctx| {
-        let _ = lua_ctx.load(method).set_name("wave_code").unwrap().exec();
-    });
 }

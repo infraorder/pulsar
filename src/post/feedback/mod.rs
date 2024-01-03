@@ -125,10 +125,9 @@ impl ViewNode for FeedbackNode {
             return Ok(());
         };
 
-        let (Some(feedback_pipeline),) = (
-            // TODO: remove motion and depth textures
-            pipeline_cache.get_render_pipeline(feedback_pipeline_id.0),
-        ) else {
+        let (Some(feedback_pipeline),) =
+            (pipeline_cache.get_render_pipeline(feedback_pipeline_id.0),)
+        else {
             return Ok(());
         };
 
