@@ -196,7 +196,6 @@ fn setup_temp(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
-    config: Res<ConfigAsset>,
 ) {
     let lua_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/wave.lua");
     let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/hood.lua");
@@ -246,11 +245,7 @@ fn setup_temp(
     ));
 }
 
-fn change_frequency(
-    q_control: Query<&AudioControl<Oscillator>>,
-    time: Res<Time>,
-    config: Res<ConfigAsset>,
-) {
+fn change_frequency(q_control: Query<&AudioControl<Oscillator>>, time: Res<Time>) {
     if let Ok(control) = q_control.get_single() {
         trace!("TEST");
         trace!("FREQUENCY: {}", control.frequency());
