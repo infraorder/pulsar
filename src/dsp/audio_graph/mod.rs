@@ -21,12 +21,10 @@ use knyst::{
     sphere::{KnystSphere, SphereSettings},
 };
 
-use crate::dsp::{
+use crate::{dsp::{
     oscillators::Oscillator, read::Read, AudioControl as AC, AudioSend, AudioSendControl, Chain,
     Dsp,
-};
-
-use crate::asset_reader::LuaAsset;
+}, components::lua::LuaAsset};
 
 pub struct AudioPlugin;
 

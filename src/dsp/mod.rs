@@ -5,6 +5,7 @@ use self::{
 
 pub mod oscillators;
 pub mod read;
+pub mod audio_graph;
 
 pub enum Dsp {
     Input(Oscillator),

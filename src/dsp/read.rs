@@ -3,19 +3,21 @@ use std::sync::{
     Arc,
 };
 
-use crate::{
-    asset_reader::LuaAsset,
-    audio_graph::{Streamable, AUDIO_BUFFER, AUDIO_SIZE},
-};
 use atomic_float::AtomicF32;
 use bevy::{asset::Assets, ecs::system::Res, log::info};
 use knyst::{
+    gen::Gen,
     prelude::{GenContext, GenState},
-    Resources, gen::Gen,
+    Resources,
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use super::AudioSendControl;
+use crate::components::lua::LuaAsset;
+
+use super::{
+    audio_graph::{Streamable, AUDIO_BUFFER, AUDIO_SIZE},
+    AudioSendControl,
+};
 
 pub type ChanOut = Vec<Arc<AtomicF32>>;
 
@@ -154,10 +156,7 @@ impl Streamable for Read {
     type Stream = ReadStream;
     type Control = ReadControl;
 
-    fn to_stream(
-        &mut self,
-        _lua: &Res<Assets<LuaAsset>>,
-    ) -> Option<AudioSendControl> {
+    fn to_stream(&mut self, _lua: &Res<Assets<LuaAsset>>) -> Option<AudioSendControl> {
         let curr_chan = Arc::new(AtomicUsize::new(0));
         let should_swap = Arc::new(AtomicBool::new(true));
 

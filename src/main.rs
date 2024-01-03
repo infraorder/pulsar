@@ -1,18 +1,14 @@
 mod asset_reader;
-mod audio_graph;
-mod config;
+mod components;
 mod dsp;
 mod egui;
-mod fps;
 mod instancing;
-mod line;
 mod post;
+mod systems;
 mod util;
 
 use std::ops::Mul;
 
-use asset_reader::{LuaAsset, LuaLoader};
-use audio_graph::{Audio, AudioControl, AudioPlugin};
 use bevy::app::PluginGroup;
 use bevy::asset::{AssetEvent, AssetPlugin, Assets};
 use bevy::core_pipeline::bloom::{BloomCompositeMode, BloomSettings};
@@ -44,19 +40,19 @@ use bevy::{
     prelude::{App, Commands, Res},
     DefaultPlugins,
 };
-use config::{ConfigAsset, ConfigComp};
+use components::config::{map_config_resource, ConfigAsset, ConfigComp};
+use components::line::{SplitLine, XYLine, SPLIT_LEN};
+use components::lua::LuaAsset;
+use dsp::audio_graph::{Audio, AudioControl};
 use dsp::oscillators::Oscillator;
 use dsp::read::Read;
 use dsp::{Chain, Dsp};
 use instancing::{InstanceData, InstanceMaterialData};
-use line::{SplitLine, XYLine, SPLIT_LEN};
 use post::feedback::FeedbackBundle;
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
 use util::{BASE, OVERLAY0};
-
-use crate::config::map_config_resource;
 
 // TODO: PUT these into a config file
 // RENDER TARGETS
@@ -76,13 +72,13 @@ fn main() {
         window::{PresentMode, Window, WindowPlugin, WindowResolution},
     };
     use bevy_egui::EguiPlugin;
-    use fps::setup_fps_counter;
 
     use crate::{
-        asset_reader::ConfigLoader,
-        fps::{fps_counter_showhide, fps_text_update_system},
+        components::{config::ConfigLoader, lua::LuaLoader},
+        dsp::audio_graph::AudioPlugin,
         instancing::InstanceMaterial2dPlugin,
         post::feedback::FeedbackPlugin,
+        systems::fps::{fps_counter_showhide, fps_text_update_system, setup_fps_counter},
     };
 
     let s = fs::read_to_string("assets/config.toml");

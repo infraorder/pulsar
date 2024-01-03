@@ -1,6 +1,6 @@
 use bevy::ecs::component::Component;
 
-use crate::audio_graph::AUDIO_SIZE;
+use crate::dsp::audio_graph::AUDIO_SIZE;
 
 pub const BUFFER_SIZE: usize = AUDIO_SIZE * 64;
 pub const SPLIT_LEN: usize = AUDIO_SIZE * 16;

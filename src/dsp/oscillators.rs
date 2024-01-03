@@ -19,12 +19,9 @@ use knyst::{
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use rlua::{Function, Lua, Result};
 
-use crate::{
-    asset_reader::LuaAsset,
-    audio_graph::{Streamable, AUDIO_SIZE},
-};
+use crate::components::lua::LuaAsset;
 
-use super::AudioSendControl;
+use super::{AudioSendControl, audio_graph::{AUDIO_SIZE, Streamable}};
 
 const OUT: &str = "OUT_FN";
 
