@@ -53,11 +53,8 @@ use rayon::iter::{
 };
 use util::{BASE, OVERLAY0};
 
-// TODO: PUT these into a config file
-// RENDER TARGETS
 const OSCIL_TARGET: u8 = 1;
 const UI_TARGET: u8 = 0;
-// \ RENDER TARGETS
 
 #[cfg(debug_assertions)]
 fn main() {
