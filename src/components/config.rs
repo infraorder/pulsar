@@ -9,12 +9,9 @@ use thiserror::Error;
 
 #[derive(Asset, TypePath, Debug, Deserialize, Serialize, Resource)]
 pub struct ConfigAsset {
-    // WINDOW CONFIGS
     pub width: u32,
     pub height: u32,
-    // \ WINDOW_CONFIGS
 
-    // LINE
     pub line_width: f32,
     pub line_scale_z: f32,
     pub line_scale_y: f32,
@@ -24,15 +21,9 @@ pub struct ConfigAsset {
 
     pub line_offset_x_1: f32,
     pub line_offset_y_1: f32,
-    // \ LINE
 
-    // XY
     pub xy_mult: f32,
     pub xy_rad: f32,
-    // \ XY
-
-    // OSCIL - TEMP
-    pub frequency: f32,
 }
 
 #[derive(Default, Component)]
@@ -52,7 +43,6 @@ pub fn map_config_resource(config: &mut ConfigAsset, new_config: &ConfigAsset) {
     config.line_offset_y_1 = new_config.line_offset_y_1;
     config.xy_mult = new_config.xy_mult;
     config.xy_rad = new_config.xy_rad;
-    config.frequency = new_config.frequency;
 }
 
 #[derive(Default)]

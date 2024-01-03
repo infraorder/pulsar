@@ -1,9 +1,6 @@
-# WINDOW CONFIGS
 width = 2650
 height = 1440
-# \ WINDOW_CONFIGS
 
-# LINE
 line_width = 1.0
 line_scale_z = 0.2
 line_scale_y = 50.0
@@ -13,12 +10,6 @@ line_offset_y_0 = -0.94
 
 line_offset_x_1 = -0.98
 line_offset_y_1 = -0.84
-# \ LINE
 
-# XY
 xy_mult = 1152.0
 xy_rad = 3.0
-# \ XY
-
-# OSCIL - TEMP
-frequency = 244.0

@@ -3,9 +3,9 @@ use self::{
     read::{Read, ReadControl, ReadStream},
 };
 
+pub mod audio_graph;
 pub mod oscillators;
 pub mod read;
-pub mod audio_graph;
 
 pub enum Dsp {
     Input(Oscillator),

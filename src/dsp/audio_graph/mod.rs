@@ -1,5 +1,3 @@
-// #![warn(clippy::pedantic)]
-
 pub const AUDIO_BUFFER: usize = AUDIO_SIZE * 256;
 pub const AUDIO_SIZE: usize = 64;
 
@@ -21,10 +19,13 @@ use knyst::{
     sphere::{KnystSphere, SphereSettings},
 };
 
-use crate::{dsp::{
-    oscillators::Oscillator, read::Read, AudioControl as AC, AudioSend, AudioSendControl, Chain,
-    Dsp,
-}, components::lua::LuaAsset};
+use crate::{
+    components::lua::LuaAsset,
+    dsp::{
+        oscillators::Oscillator, read::Read, AudioControl as AC, AudioSend, AudioSendControl,
+        Chain, Dsp,
+    },
+};
 
 pub struct AudioPlugin;
 

@@ -57,6 +57,8 @@ use util::{BASE, OVERLAY0};
 const OSCIL_TARGET: u8 = 1;
 const UI_TARGET: u8 = 0;
 
+const FREQUENCY_TEMP: f32 = 144.0;
+
 #[cfg(debug_assertions)]
 fn main() {
     use std::fs;
@@ -200,7 +202,7 @@ fn setup_temp(
     let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/hood.lua");
 
     let oscil = Oscillator {
-        frequency_hz: config.frequency,
+        frequency_hz: FREQUENCY_TEMP,
         lua_handle,
         lua_util_handle,
         lua_string: "".to_owned(),
@@ -254,7 +256,7 @@ fn change_frequency(
         trace!("FREQUENCY: {}", control.frequency());
 
         let exp = time.elapsed_seconds_wrapped().sin();
-        let _frequency_hz = 2.0_f32.powf(exp) * config.frequency;
+        let _frequency_hz = 2.0_f32.powf(exp) * FREQUENCY_TEMP;
         control.set_frequency(_frequency_hz);
         control.set_time(time.delta_seconds());
     }
