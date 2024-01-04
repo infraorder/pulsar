@@ -14,7 +14,7 @@ use knyst::{
     audio_backend::{CpalBackend, CpalBackendOptions},
     controller::KnystCommands,
     gen::Gen,
-    graph::{connection::InputBundle, NodeId, Graph, GraphSettings},
+    graph::{connection::InputBundle, Graph, GraphSettings, NodeId},
     inputs, knyst_commands,
     sphere::{KnystSphere, SphereSettings},
 };
@@ -97,8 +97,6 @@ impl AudioOutput {
         let id = knyst_commands().push(stream, inputs);
 
         let g = Graph::new(GraphSettings::default()); // TODO RETURN HERE
-
-
 
         id
     }

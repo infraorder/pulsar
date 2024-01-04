@@ -46,7 +46,7 @@ node = {
     output_slots = {},
 }
 
-node_data = {
+data = {
     updated = {},
     slot_data = {},
     output_slot_data = {},

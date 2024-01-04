@@ -1,6 +1,7 @@
+// imports
 use std::sync::Mutex;
 
-use bevy::{asset::Handle, ecs::component::Component, render::color::Color};
+use bevy::{asset::Handle, ecs::component::Component, render::color::Color, math::Vec2};
 use rlua::{Context, Error, FromLua, Lua, Table};
 
 use crate::{
@@ -8,50 +9,16 @@ use crate::{
     util::{MANTLE, MAROON},
 };
 
-pub trait Data {
-    fn set(&mut self, data: char);
-}
-
-#[derive(Component, Clone)]
-pub struct Collider;
-
-#[derive(Component, Clone)]
-pub struct Silent;
-
-#[derive(Component, Clone)]
-pub struct Static;
-
-#[derive(Component, Clone)]
-pub struct NotSetup;
-
+// Color
+/// Struct for passing colors to lua.
 #[derive(Clone, Debug)]
 pub struct PColor(pub Color);
 
+/// Struct for passing Color Pairs to lua.
 #[derive(Clone, Debug)]
 pub struct ColorPair {
     pub foreground: PColor,
     pub background: PColor,
-}
-
-impl Default for ColorPair {
-    fn default() -> Self {
-        Self {
-            foreground: PColor(MANTLE),
-            background: PColor(MAROON),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct Position {
-    x: i32,
-    y: i32,
-}
-
-impl Position {
-    pub fn new(x: i32, y: i32) -> Self {
-        Self { x, y }
-    }
 }
 
 impl ColorPair {
@@ -63,6 +30,57 @@ impl ColorPair {
     }
 }
 
+impl Default for ColorPair {
+    fn default() -> Self {
+        Self {
+            foreground: PColor(MANTLE),
+            background: PColor(MAROON),
+        }
+    }
+}
+
+pub trait Display {
+    fn name(&self) -> char;
+    fn pos(&self) -> Position;
+    fn get_active(&self) -> ColorPair;
+    fn get_inert(&self) -> ColorPair;
+    fn get_inactive(&self) -> ColorPair;
+}
+
+// components
+/// This Component denotes a node that is not part of a grid.
+/// Instead this is a node blueprint for creating nodes of this type.
+#[derive(Component, Clone)]
+pub struct NodeBP;
+
+/// This Component denotes that a node is not setup yet
+#[derive(Component, Clone)]
+pub struct NotSetup;
+
+/// All entities with this node deal with audio processing.
+#[derive(Component, Clone)]
+pub struct AudioNode;
+
+// Position
+/// x, y position on the grid.
+#[derive(Clone, Debug, Default)]
+pub struct Position {
+    x: i32,
+    y: i32,
+}
+
+impl Position {
+    pub fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+
+    pub fn to_vec2(&self) -> Vec2 {
+        Vec2::new(self.x as f32, self.y as f32)
+    }
+}
+
+// Slot type
+/// This is a slot on a node. Sits close to the parent node [node][slot]
 #[derive(Clone, Debug, Default)]
 pub struct Slot {
     pub pos: Position,
@@ -70,6 +88,8 @@ pub struct Slot {
     pub signal_type: ChainType,
 }
 
+// Lua
+/// LuaNode - lua controlled node.
 #[derive(Component)]
 pub struct LuaNode {
     pub handles: Vec<LuaHandle>,
@@ -78,6 +98,44 @@ pub struct LuaNode {
     pub lua: Mutex<Lua>,
 }
 
+impl Display for LuaNode {
+    fn name(&self) -> char {
+        self.node.name.chars().next().unwrap()
+    }
+
+    fn pos(&self) -> Position {
+        self.node.pos.clone()
+    }
+
+    fn get_active(&self) -> ColorPair {
+        self.node.active.clone()
+    }
+
+    fn get_inert(&self) -> ColorPair {
+        self.node.inert.clone()
+    }
+
+    fn get_inactive(&self) -> ColorPair {
+        self.node.inactive.clone()
+    }
+}
+
+/// LuaHandle - handle for lua scripts.
+#[derive(Clone)]
+pub struct LuaHandle {
+    pub ltype: LuaType,
+    pub handle: Handle<LuaAsset>,
+}
+
+/// LuaType - type of lua script.
+#[derive(Clone)]
+pub enum LuaType {
+    Wave,
+    Node,
+}
+
+// Node
+/// Node - base node. All nodes should have this struct.
 #[derive(Clone, Default, Debug)]
 pub struct Node {
     pub name: String,
@@ -91,6 +149,7 @@ pub struct Node {
     pub output_slots: Vec<Slot>,
 }
 
+/// Data object for the node - All nodes should have this struct.
 #[derive(Clone, Default, Debug)]
 pub struct NodeData {
     pub slot_data: Vec<SlotE>,
@@ -99,6 +158,8 @@ pub struct NodeData {
     pub state: NodeState,
 }
 
+// TYPES
+/// Current state of the node - in order to control logic
 #[derive(Clone, Default, Debug)]
 pub enum NodeState {
     Active,
@@ -108,23 +169,7 @@ pub enum NodeState {
     None,
 }
 
-pub trait NodeTrait {
-    fn get_node(&self) -> Node;
-    fn get_node_data(&self) -> NodeData;
-}
-
-#[derive(Clone)]
-pub struct LuaHandle {
-    pub ltype: LuaType,
-    pub handle: Handle<LuaAsset>,
-}
-
-#[derive(Clone)]
-pub enum LuaType {
-    Wave,
-    Node,
-}
-
+/// Type of a node, in order to control logic
 #[derive(Clone, Debug, Default)]
 pub enum ChainType {
     Signal,
@@ -136,6 +181,7 @@ pub enum ChainType {
     None, // Default node type -- will throw if this is type
 }
 
+// Slot Type
 #[derive(Clone, Debug, Default)]
 pub enum SlotType {
     F32,
@@ -149,6 +195,7 @@ pub enum SlotType {
     None, // default slot type -- will throw if this is type
 }
 
+// Slot type - for converting from lua
 #[derive(Clone, Debug)]
 pub enum SlotE {
     F32(f32),
@@ -159,6 +206,7 @@ pub enum SlotE {
     Bang(bool),
 }
 
+// Impl of FromLua for all types
 impl<'lua> FromLua<'lua> for Node {
     fn from_lua(value: rlua::prelude::LuaValue<'lua>, _ctx: Context<'lua>) -> Result<Self, Error> {
         match value {
