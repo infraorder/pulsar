@@ -31,9 +31,9 @@ use bevy::render::camera::Camera;
 use bevy::render::color::Color;
 use bevy::render::mesh::{shape, Mesh};
 use bevy::render::view::{Msaa, NoFrustumCulling, RenderLayers};
-use bevy::sprite::{Mesh2dHandle, SpriteSheetBundle, TextureAtlas, TextureAtlasSprite};
+use bevy::sprite::Mesh2dHandle;
 use bevy::time::Time;
-use bevy::transform::components::{GlobalTransform, Transform};
+use bevy::transform::components::GlobalTransform;
 use bevy::{
     app::{Startup, Update},
     asset::{AssetApp, AssetServer, Handle},
@@ -76,7 +76,7 @@ fn main() {
         app::PostUpdate,
         ecs::schedule::IntoSystemConfigs,
         render::texture::ImagePlugin,
-        window::{PresentMode, Window, WindowPlugin, WindowResolution, WindowMode},
+        window::{PresentMode, Window, WindowMode, WindowPlugin, WindowResolution},
     };
     use bevy_egui::EguiPlugin;
 
@@ -205,7 +205,6 @@ fn setup_temp(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     let lua_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/wave.lua");
     let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/hood.lua");
@@ -238,25 +237,6 @@ fn setup_temp(
         ..Default::default()
     }));
 
-    let texture_handle = asset_server.load("sprites/sheet.png");
-    let texture_atlas = TextureAtlas::from_grid(
-        texture_handle,
-        Vec2::new(7., 9.),
-        2,
-        1,
-        None,
-        Some(Vec2::new(14., 0.)),
-    );
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
-
-    let spundle = CustomSpriteBundle {
-        texture_atlas: texture_atlas_handle,
-        sprite: TextureAtlasSprite::new(1),
-        ..Default::default()
-    };
-
-    // Use only the subset of sprites in the sheet that make up the run animation
-
     commands.spawn((InstancingBundle {
         mesh: Mesh2dHandle(mesh),
         frustum_culling: NoFrustumCulling,
@@ -271,12 +251,6 @@ fn setup_temp(
             layer: RenderLayers::layer(OSCIL_TARGET),
         },
     },));
-}
-
-#[derive(Bundle, Clone, Default)]
-pub struct CustomSpriteBundle {
-    pub sprite: TextureAtlasSprite,
-    pub texture_atlas: Handle<TextureAtlas>,
 }
 
 fn change_frequency(q_control: Query<&AudioControl<Oscillator>>, time: Res<Time>) {
