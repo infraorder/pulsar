@@ -4,7 +4,7 @@ pub const AUDIO_SIZE: usize = 64;
 use bevy::{
     app::{PostUpdate, Update},
     asset::{AssetEvent, Assets},
-    ecs::{component::TableStorage, event::EventReader, system::Res, query::With},
+    ecs::{component::TableStorage, event::EventReader, query::With, system::Res},
     prelude::{
         App, Commands, Component, Deref, DerefMut, Entity, NonSendMut, Plugin, Query, Without,
     },
@@ -14,7 +14,7 @@ use knyst::{
     audio_backend::{CpalBackend, CpalBackendOptions},
     controller::KnystCommands,
     gen::Gen,
-    graph::{connection::InputBundle, NodeId},
+    graph::{connection::InputBundle, NodeId, Graph, GraphSettings},
     inputs, knyst_commands,
     sphere::{KnystSphere, SphereSettings},
 };
@@ -94,7 +94,13 @@ impl AudioOutput {
             }
         };
 
-        knyst_commands().push(stream, inputs)
+        let id = knyst_commands().push(stream, inputs);
+
+        let g = Graph::new(GraphSettings::default()); // TODO RETURN HERE
+
+
+
+        id
     }
 }
 
@@ -148,8 +154,7 @@ fn play_audio(
                 Dsp::Input(i) => i.to_stream(&lua_assets),
                 Dsp::Read(i) => i.to_stream(&lua_assets),
             })
-            .filter(|i| i.is_some())
-            .map(|i| i.unwrap())
+            .map(|i| i.unwrap()) // TODO: handle None by failing entire chain
             .fold((vec![], vec![]), |mut res, i| {
                 match i {
                     AudioSendControl::Read((stream, control)) => {

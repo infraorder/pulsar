@@ -26,10 +26,21 @@ use bevy::{
 };
 use bytemuck::{Pod, Zeroable};
 
-#[derive(Component, Default)]
+use crate::OSCIL_TARGET;
+
+#[derive(Component)]
 pub struct InstanceMaterialData {
     pub data: Vec<InstanceData>,
     pub layer: RenderLayers,
+}
+
+impl Default for InstanceMaterialData {
+    fn default() -> Self {
+        Self {
+            data: Vec::new(),
+            layer: RenderLayers::layer(OSCIL_TARGET),
+        }
+    }
 }
 
 impl ExtractComponent for InstanceMaterialData {

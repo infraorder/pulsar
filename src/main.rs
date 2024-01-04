@@ -76,12 +76,16 @@ fn main() {
         app::PostUpdate,
         ecs::schedule::IntoSystemConfigs,
         render::texture::ImagePlugin,
-        window::{PresentMode, Window, WindowMode, WindowPlugin, WindowResolution},
+        window::{PresentMode, Window, WindowPlugin, WindowResolution},
     };
     use bevy_egui::EguiPlugin;
 
     use crate::{
-        components::{config::ConfigLoader, lua::LuaLoader},
+        components::{
+            config::ConfigLoader,
+            lua::LuaLoader,
+            nodes::{init_temp, initialize_node},
+        },
         dsp::audio_graph::AudioPlugin,
         instancing::InstanceMaterial2dPlugin,
         post::feedback::FeedbackPlugin,
@@ -108,8 +112,8 @@ fn main() {
                             config.height as f32,
                         ),
                         title: "pulsar • player".into(),
-                        mode: WindowMode::BorderlessFullscreen,
-                        present_mode: PresentMode::Fifo,
+                        // mode: WindowMode::BorderlessFullscreen,
+                        present_mode: PresentMode::Immediate,
                         fit_canvas_to_parent: true,
                         ..Default::default()
                     }),
@@ -131,6 +135,9 @@ fn main() {
         .add_systems(Startup, (setup, setup_fps_counter))
         // temporary setup will be removed in future
         .add_systems(Startup, setup_temp)
+        // .add_systems(Startup, setup_grid) // TODO: Re-Add
+        .add_systems(Startup, init_temp)
+        .add_systems(Update, initialize_node)
         // temporary system
         .add_systems(Update, change_frequency)
         // main drawing systems
@@ -205,9 +212,10 @@ fn setup_temp(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
+    lua_assets: Res<Assets<LuaAsset>>,
 ) {
-    let lua_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/wave.lua");
-    let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/readers/lua_pulse/hood.lua");
+    let lua_handle: Handle<LuaAsset> = asset_server.load("lua/nodes/instrument/lua_pulse/wave.lua");
+    let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/common/instrument/wave.lua");
 
     let oscil = Oscillator {
         frequency_hz: FREQUENCY_TEMP,

@@ -2,7 +2,7 @@ use std::f64::consts::{PI, TAU};
 
 use rlua::Lua;
 
-pub const UTIL_STRING: &str = include_str!("../../assets/lua/global_util.lua");
+pub const UTIL_STRING: &str = include_str!("../../assets/lua/util.lua");
 
 pub fn init_instance() -> Lua {
     let lua = Lua::new();

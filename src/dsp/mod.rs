@@ -30,3 +30,14 @@ pub enum AudioSend {
 pub struct Chain {
     pub items: Vec<Dsp>,
 }
+
+// TODO: switch to this
+pub enum ChainType {
+    Dsp(Dsp),
+    SubChain(Chain),
+    ChainList(Vec<Chain>),
+}
+
+pub struct TChain {
+    t: Box<ChainType>,
+}

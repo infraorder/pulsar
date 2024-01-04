@@ -1,0 +1,6 @@
+{
+  "diagnostics.globals": [
+    "node",
+        "node_data"
+  ]
+}

@@ -7,7 +7,7 @@ FN = function(_) -- frequency
 
     local rwave = W(math.cos, f)
     rwave = rwave * W(math.sin, f / 1)
-    local lfo = W(math.sin, 1.0);
+    local lfo = W(math.sin, 1.0)
     rwave = rwave * math.cos(lfo)
 
     return lwave, rwave

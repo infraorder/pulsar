@@ -1,66 +1,114 @@
 use bevy::{
-    asset::{AssetServer, Assets},
+    asset::Assets,
     ecs::{
         component::Component,
-        system::{Commands, Query, Res, ResMut},
+        system::{Commands, ResMut},
     },
-    math::{Vec2, Vec3},
     prelude::{Deref, DerefMut},
-    render::mesh::Mesh,
-    sprite::{SpriteSheetBundle, TextureAtlas, TextureAtlasSprite},
-    time::{Time, Timer},
-    transform::components::Transform,
+    render::{
+        mesh::{Indices, Mesh},
+        render_resource::PrimitiveTopology,
+        view::RenderLayers,
+    },
+    time::Timer,
 };
 
-use crate::InstancingBundle;
+use crate::{instancing::InstanceMaterialData, InstancingBundle, UI_TARGET};
 
-use super::GridBundle;
+use super::{Grid, GridBundle};
 
-pub fn setup_grid(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-) {
-    let texture_handle = asset_server.load("sprites/sheet.png");
-    let texture_atlas = TextureAtlas::from_grid(
-        texture_handle,
-        Vec2::new(7., 9.),
-        2,
-        1,
-        None,
-        Some(Vec2::new(14., 0.)),
-    );
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+pub fn setup_grid(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+    let mesh = bevy::sprite::Mesh2dHandle(meshes.add(construct_grid_mesh()));
 
-    let spundle = SpriteSheetBundle {
-        texture_atlas: texture_atlas_handle,
-        sprite: TextureAtlasSprite::new(1),
-        transform: Transform::from_scale(Vec3::splat(6.0)),
-        ..Default::default()
+    let mut instance_material = InstanceMaterialData {
+        data: vec![],
+        layer: RenderLayers::layer(UI_TARGET),
     };
+    let grid = Grid::default();
+    grid.render_change(&mut instance_material.data);
 
-    // Use only the subset of sprites in the sheet that make up the run animation
-
-    commands.spawn(GridBundle {
-        instancing: InstancingBundle {
+    commands.spawn((
+        GridBundle {
+            instancing: InstancingBundle {
+                mesh,
+                instance_material,
+                ..Default::default()
+            },
+            grid,
             ..Default::default()
         },
-        ..Default::default()
-    });
+        RenderLayers::layer(UI_TARGET),
+    ));
 }
 
 #[derive(Component, Deref, DerefMut)]
 pub struct GridAnimationTimer(Timer);
 
-pub fn animate_grid(
-    time: Res<Time>,
-    mut query: Query<(&mut GridAnimationTimer, &mut TextureAtlasSprite)>,
-) {
-    for (mut timer, mut sprite) in &mut query {
-        timer.tick(time.delta());
-        if timer.just_finished() {
-            sprite.index = 1 - sprite.index;
-        }
-    }
+fn construct_grid_mesh() -> Mesh {
+    let extent_x = 1.0 / 2.0;
+    let extent_y = 2.0 / 2.0;
+
+    let extent_2_x = 1.0 / 2.0;
+    let extent_2_y = 1.0 / 2.0;
+
+    let extent_3_x = 2.0 / 2.0;
+    let extent_3_y = 1.0 / 2.0;
+
+    /*
+     *
+     *
+     *      1  2
+     *
+     *   6     4  7
+     *
+     *   5        8
+     *
+     *      0  3
+     *
+     */
+
+    let (u_left, u_right) = (0.0, 1.0);
+    let vertices = [
+        ([-extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 1.0]),
+        ([-extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 0.0]),
+        ([extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, 0.0]),
+        ([extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, 1.0]),
+        (
+            [extent_2_x, extent_2_y, 0.0],
+            [0.0, 0.0, 1.0],
+            [u_right, 0.0],
+        ),
+        (
+            [-extent_3_x, -extent_3_y, 0.0],
+            [0.0, 0.0, 1.0],
+            [u_left, 1.0],
+        ),
+        (
+            [-extent_3_x, extent_3_y, 0.0],
+            [0.0, 0.0, 1.0],
+            [u_left, 0.0],
+        ),
+        (
+            [extent_3_x, extent_3_y, 0.0],
+            [0.0, 0.0, 1.0],
+            [u_right, 0.0],
+        ),
+        (
+            [extent_3_x, -extent_3_y, 0.0],
+            [0.0, 0.0, 1.0],
+            [u_right, 1.0],
+        ),
+    ];
+
+    let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2, 4, 7, 5, 8, 7, 6, 5]);
+
+    let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+    let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+    let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
+
+    Mesh::new(PrimitiveTopology::TriangleList)
+        .with_indices(Some(indices))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
 }
