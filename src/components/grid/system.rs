@@ -33,6 +33,7 @@ pub fn setup_grid(
     let grid = Grid::default();
     grid.render_change(
         &mut instance_material.data,
+        config.grid_widget_scale,
         (config.grid_offset_x, config.grid_offset_y),
     );
 
@@ -55,13 +56,10 @@ pub struct GridAnimationTimer(Timer);
 
 fn construct_grid_mesh() -> Mesh {
     let extent_x = 1.0 / 2.0;
-    let extent_y = 2.0 / 2.0;
+    let extent_y = 3.0 / 2.0;
 
-    let extent_2_x = 1.0 / 2.0;
-    let extent_2_y = 1.0 / 2.0;
-
-    let extent_3_x = 2.0 / 2.0;
-    let extent_3_y = 1.0 / 2.0;
+    let e_3_x = 3.0 / 2.0;
+    let e_3_y = 1.0 / 2.0;
 
     /*
      *
@@ -78,38 +76,20 @@ fn construct_grid_mesh() -> Mesh {
 
     let (u_left, u_right) = (0.0, 1.0);
     let vertices = [
-        ([-extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 1.0]),
+        ([-extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 1.0]), // first rect
         ([-extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_left, 0.0]),
         ([extent_x, extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, 0.0]),
         ([extent_x, -extent_y, 0.0], [0.0, 0.0, 1.0], [u_right, 1.0]),
-        (
-            [extent_2_x, extent_2_y, 0.0],
-            [0.0, 0.0, 1.0],
-            [u_right, 0.0],
-        ),
-        (
-            [-extent_3_x, -extent_3_y, 0.0],
-            [0.0, 0.0, 1.0],
-            [u_left, 1.0],
-        ),
-        (
-            [-extent_3_x, extent_3_y, 0.0],
-            [0.0, 0.0, 1.0],
-            [u_left, 0.0],
-        ),
-        (
-            [extent_3_x, extent_3_y, 0.0],
-            [0.0, 0.0, 1.0],
-            [u_right, 0.0],
-        ),
-        (
-            [extent_3_x, -extent_3_y, 0.0],
-            [0.0, 0.0, 1.0],
-            [u_right, 1.0],
-        ),
+        ([-e_3_x, -e_3_y, 0.0], [0.0, 0.0, 1.0], [u_left, 1.0]), // second rect
+        ([-e_3_x, e_3_y, 0.0], [0.0, 0.0, 1.0], [u_left, 0.0]),
+        ([e_3_x, e_3_y, 0.0], [0.0, 0.0, 1.0], [u_right, 0.0]),
+        ([e_3_x, -e_3_y, 0.0], [0.0, 0.0, 1.0], [u_right, 1.0]),
     ];
 
-    let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2, 4, 7, 5, 8, 7, 6, 5]);
+    let indices = Indices::U32(vec![
+        0, 2, 1, 0, 3, 2, // first rect
+        4, 6, 5, 4, 7, 6, // second rect
+    ]);
 
     let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
     let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();

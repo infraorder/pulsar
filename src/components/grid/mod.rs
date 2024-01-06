@@ -7,12 +7,16 @@ use bevy::{
     utils::HashMap,
 };
 
+use anyhow::Result;
+
 use crate::{instancing::InstanceData, util::MANTLE, InstancingBundle};
+
+use super::nodes::types::NodeTrait;
 
 #[derive(Debug, Component, Clone)]
 pub struct Grid {
-    dims: (u32, u32),
-    map: HashMap<(u32, u32), Entity>,
+    pub dims: (i32, i32),
+    pub map: HashMap<(i32, i32), Entity>,
 }
 
 impl Default for Grid {
@@ -31,7 +35,12 @@ pub struct GridBundle {
 }
 
 impl Grid {
-    pub fn render_change(&self, data: &mut Vec<InstanceData>, offset: (f32, f32)) {
+    pub fn render_change(
+        &self,
+        data: &mut Vec<InstanceData>,
+        widget_scale: f32,
+        offset: (f32, f32),
+    ) {
         info!("render change");
         data.clear();
 
@@ -46,11 +55,11 @@ impl Grid {
                         .into_iter()
                         .map(|y| InstanceData {
                             position: Vec3::new(
-                                ((x as f32) - (dim_x as f32 / 2.0)) * offset.0, // move to -1 1
-                                ((y as f32) - (dim_y as f32 / 2.0)) * offset.1,
+                                (((x as f32) - (dim_x as f32 / 2.0)) * offset.0) - (offset.0 / 2.0), // move to -1 1
+                                (((y as f32) - (dim_y as f32 / 2.0)) * offset.1) - (offset.1 / 2.0),
                                 -2.0,
                             ),
-                            scale: 1.0,
+                            scale: widget_scale,
                             index: 0.0,
                             color: MANTLE.as_rgba_f32(),
                         })
@@ -61,7 +70,7 @@ impl Grid {
         );
     }
 
-    pub fn add_to_grid(&mut self, entity: Entity, pos: (u32, u32)) {
+    pub fn add_to_grid(&mut self, entity: Entity, pos: (i32, i32)) {
         // check if pos of grid x, y contains
 
         if self.map.contains_key(&pos) {
@@ -72,16 +81,49 @@ impl Grid {
         self.map.entry(pos).insert(entity);
     }
 
-    pub fn remove_from_grid(&mut self, pos: (u32, u32)) {
+    pub fn remove_from_grid(&mut self, pos: (i32, i32)) {
         self.map.remove(&pos);
     }
 
-    pub fn move_entity(&mut self, entity: Entity, pos: (u32, u32), npos: (u32, u32)) {
+    pub fn move_entity(&mut self, entity: Entity, pos: (i32, i32), npos: (i32, i32)) {
         self.remove_from_grid(pos);
         self.add_to_grid(entity, npos);
     }
 
-    pub fn get_entities(&self, pos: (u32, u32)) -> Option<Entity> {
+    pub fn get_entities(&self, pos: (i32, i32)) -> Option<Entity> {
         self.map.get(&pos).cloned()
+    }
+
+    pub fn exists(&self, pos: (i32, i32)) -> bool {
+        self.map.contains_key(&pos)
+    }
+
+    pub fn check_collision<
+        T: NodeTrait + Component,
+        S: NodeTrait + Component,
+        V: NodeTrait + Component,
+    >(
+        &mut self,
+        node: &T,
+        input_slots: &Vec<S>,
+        output_slots: &Vec<V>,
+    ) -> Result<()> {
+        if self.exists(node.pos().to_tuple()) {
+            return Err(anyhow::anyhow!("collision"));
+        }
+
+        for slot in input_slots.iter() {
+            if self.exists(slot.pos().offset(node.pos()).to_tuple()) {
+                return Err(anyhow::anyhow!("collision"));
+            }
+        }
+
+        for slot in output_slots.iter() {
+            if self.exists(slot.pos().offset(node.pos()).to_tuple()) {
+            return Err(anyhow::anyhow!("collision"));
+            }
+        }
+
+        Ok(())
     }
 }

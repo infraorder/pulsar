@@ -9,6 +9,7 @@ use bevy::{
         system::{Commands, Res},
     },
     hierarchy::{BuildChildren, ChildBuilder},
+    log::info,
     math::{Vec2, Vec3},
     render::{color::Color, view::RenderLayers},
     sprite::{Sprite, SpriteBundle},
@@ -16,10 +17,14 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::{components::config::ConfigAsset, UI_TARGET};
+use crate::{
+    components::{config::ConfigAsset, grid::Grid},
+    util::{CRUST, MANTLE, RED},
+    UI_TARGET,
+};
 
 use super::types::{
-    ColorPair, Display, InputSlot, LuaNode, OutputSlot, PColor, SlotNode, SlotType,
+    ColorPair, InputSlot, NodeTrait, OutputSlot, PColor, ParentNode, SlotNode, SlotType,
 };
 
 pub fn spawn_text2d(
@@ -28,7 +33,9 @@ pub fn spawn_text2d(
     name: String,
     color: ColorPair,
 ) -> impl Bundle {
-    let box_size = Vec2::new(20.0, 30.0);
+    let box_size = Vec2::new(config.grid_offset_x, config.grid_offset_y);
+
+    info!("node name is: {:?}", name);
 
     Text2dBundle {
         text: Text {
@@ -54,42 +61,47 @@ pub fn spawn_text2d(
 }
 
 pub fn spawn_node_with_children<
-    T: Display + Component,
-    S: Display + Component,
-    V: Display + Component,
+    T: NodeTrait + Component,
+    S: NodeTrait + Component,
+    V: NodeTrait + Component,
 >(
+    grid: &mut Grid,
     config: &Res<ConfigAsset>,
     cmd: &mut Commands,
     asset_server: &Res<AssetServer>,
     node: T,
     input_slots: &mut Vec<S>,
     output_slots: &mut Vec<V>,
-) {
-    let e = spawn_node_with_text(config, cmd, asset_server, node);
+) -> Entity {
+    let e = spawn_node_with_text(grid, config, cmd, asset_server, node);
     let mut ce = cmd.entity(e);
 
     ce.with_children(|builder| {
         (0..input_slots.len()).for_each(|_| {
             let t = input_slots.pop().unwrap();
-            spawn_child_node_with_text(config, builder, asset_server, t);
+            spawn_child_node_with_text(grid, config, builder, asset_server, t);
         });
     });
 
     ce.with_children(|builder| {
         (0..output_slots.len()).for_each(|_| {
             let t = output_slots.pop().unwrap();
-            spawn_child_node_with_text(config, builder, asset_server, t);
+            spawn_child_node_with_text(grid, config, builder, asset_server, t);
         });
     });
+
+    e
 }
 
-pub fn spawn_node_with_text<T: Display + Component>(
+pub fn spawn_node_with_text<T: NodeTrait + Component>(
+    grid: &mut Grid,
     config: &Res<ConfigAsset>,
     cmd: &mut Commands,
     asset_server: &Res<AssetServer>,
     node: T,
 ) -> Entity {
-    let node_name = node.name().clone();
+    let node_pos = node.pos();
+    let node_name = node.display();
     let node_color = node.get_inert();
 
     let mut ce = cmd.spawn((spawn_node(config, node), RenderLayers::layer(UI_TARGET)));
@@ -103,16 +115,21 @@ pub fn spawn_node_with_text<T: Display + Component>(
         ));
     });
 
+    grid.map.insert(node_pos.to_tuple(), ce.id());
+
     return ce.id();
 }
 
-pub fn spawn_child_node_with_text<T: Display + Component>(
+pub fn spawn_child_node_with_text<T: NodeTrait + Component>(
+    grid: &mut Grid,
     config: &Res<ConfigAsset>,
     cmd: &mut ChildBuilder,
     asset_server: &Res<AssetServer>,
     node: T,
 ) -> Entity {
-    let node_name = node.name().clone();
+    let node_pos = node.pos();
+
+    let node_name = node.display();
     let node_color = node.get_inert();
 
     let mut ce = cmd.spawn((spawn_node(config, node), RenderLayers::layer(UI_TARGET)));
@@ -126,10 +143,12 @@ pub fn spawn_child_node_with_text<T: Display + Component>(
         ));
     });
 
+    grid.map.insert(node_pos.to_tuple(), ce.id());
+
     return ce.id();
 }
 
-pub fn spawn_node<T: Display + Component>(config: &Res<ConfigAsset>, node: T) -> impl Bundle {
+pub fn spawn_node<T: NodeTrait + Component>(config: &Res<ConfigAsset>, node: T) -> impl Bundle {
     let box_size = Vec2::new(config.grid_offset_x, config.grid_offset_y);
     let pos = node.pos().to_vec2() * -box_size;
     let bcol = node.get_inert().background.0;
@@ -148,32 +167,40 @@ pub fn spawn_node<T: Display + Component>(config: &Res<ConfigAsset>, node: T) ->
     )
 }
 
-pub fn create_default_components(c: LuaNode) -> (LuaNode, Vec<InputSlot>, Vec<OutputSlot>) {
+pub fn create_default_components<T: NodeTrait + ParentNode + Component>(
+    c: T,
+) -> (T, Vec<InputSlot>, Vec<OutputSlot>) {
     let mut t = Vec::new();
     let mut s = Vec::new();
 
-    c.node.output_slots.iter().enumerate().for_each(|(i, os)| {
-        t.push(OutputSlot {
-            idx: i,
-            slot: SlotNode {
-                slot_type: os.slot_type.clone(),
-                signal_type: os.signal_type.clone(),
-                display: get_slot_name(true, &os.slot_type),
-                pos: os.pos.clone(),
-                active: slot_active(),
-                inert: slot_inert(),
-                inactive: slot_inactive(),
-            },
+    c.get_node()
+        .output_slots
+        .iter()
+        .enumerate()
+        .for_each(|(i, os)| {
+            t.push(OutputSlot {
+                idx: i,
+                slot: SlotNode {
+                    slot_type: os.slot_type.clone(),
+                    signal_type: os.signal_type.clone(),
+                    display: get_slot_name(true, &os.slot_type),
+                    name: get_slot_name(true, &os.slot_type), // TODO: get actual name
+                    pos: os.pos.clone(),
+                    active: slot_active(),
+                    inert: slot_inert(),
+                    inactive: slot_inactive(),
+                },
+            });
         });
-    });
 
-    c.node.slots.iter().enumerate().for_each(|(i, os)| {
+    c.get_node().slots.iter().enumerate().for_each(|(i, os)| {
         s.push(InputSlot {
             idx: i,
             slot: SlotNode {
                 slot_type: os.slot_type.clone(),
                 signal_type: os.signal_type.clone(),
                 display: get_slot_name(false, &os.slot_type),
+                name: get_slot_name(true, &os.slot_type), // TODO: get actual name
                 pos: os.pos.clone(),
                 active: slot_active(),
                 inert: slot_inert(),
@@ -213,7 +240,7 @@ pub fn slot_inactive() -> ColorPair {
 
 pub fn slot_inert() -> ColorPair {
     ColorPair {
-        foreground: PColor(Color::rgb(1.0, 1.0, 0.0)),
-        background: PColor(Color::rgb(0.0, 0.0, 1.0)),
+        foreground: PColor(RED),
+        background: PColor(MANTLE),
     }
 }

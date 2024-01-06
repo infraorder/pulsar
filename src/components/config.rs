@@ -27,6 +27,8 @@ pub struct ConfigAsset {
 
     pub grid_offset_x: f32,
     pub grid_offset_y: f32,
+
+    pub grid_widget_scale: f32,
 }
 
 #[derive(Default, Component)]

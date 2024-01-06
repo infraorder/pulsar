@@ -50,7 +50,7 @@ use post::feedback::FeedbackBundle;
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
-use util::{BASE, OVERLAY0};
+use util::{BASE, CRUST, OVERLAY0};
 
 const OSCIL_TARGET: u8 = 1;
 const UI_TARGET: u8 = 0;
@@ -193,7 +193,7 @@ fn setup(
     commands.spawn((
         Camera2dBundle {
             camera_2d: Camera2d {
-                clear_color: ClearColorConfig::Custom(BASE),
+                clear_color: ClearColorConfig::Custom(CRUST),
                 ..Default::default()
             },
             camera: Camera {
