@@ -28,15 +28,13 @@ use bevy::math::{Vec2, Vec3};
 use bevy::prelude::SpatialBundle;
 use bevy::reflect::Reflect;
 use bevy::render::camera::Camera;
-use bevy::render::color::Color;
-use bevy::render::mesh::{shape, Mesh};
 use bevy::render::view::{Msaa, NoFrustumCulling, RenderLayers};
 use bevy::sprite::Mesh2dHandle;
 use bevy::time::Time;
 use bevy::transform::components::GlobalTransform;
 use bevy::{
     app::{Startup, Update},
-    asset::{AssetApp, AssetServer, Handle},
+    asset::{AssetApp, AssetServer},
     ecs::system::Query,
     prelude::{App, Commands, Res},
     DefaultPlugins,
@@ -44,10 +42,9 @@ use bevy::{
 use components::config::{map_config_resource, ConfigAsset, ConfigComp};
 use components::line::{SplitLine, XYLine, SPLIT_LEN};
 use components::lua::LuaAsset;
-use dsp::audio_graph::{Audio, AudioControl};
+use dsp::audio_graph::AudioControl;
 use dsp::oscillators::Oscillator;
 use dsp::read::Read;
-use dsp::{Chain, Dsp};
 use instancing::{InstanceData, InstanceMaterialData};
 use post::feedback::FeedbackBundle;
 use rayon::iter::{
@@ -68,6 +65,9 @@ pub struct InstancingBundle {
     frustum_culling: NoFrustumCulling,
 }
 
+#[derive(Component, Default)]
+pub struct Oscil;
+
 #[cfg(debug_assertions)]
 fn main() {
     use std::fs;
@@ -83,8 +83,9 @@ fn main() {
     use crate::{
         components::{
             config::ConfigLoader,
+            grid::system::setup_grid,
             lua::LuaLoader,
-            nodes::{init_temp, initialize_node},
+            nodes::system::{init_temp, initialize_node, keyboard_input},
         },
         dsp::audio_graph::AudioPlugin,
         instancing::InstanceMaterial2dPlugin,
@@ -134,12 +135,14 @@ fn main() {
         // setup
         .add_systems(Startup, (setup, setup_fps_counter))
         // temporary setup will be removed in future
-        .add_systems(Startup, setup_temp)
+        // .add_systems(Startup, setup_temp)
         // .add_systems(Startup, setup_grid) // TODO: Re-Add
+        .add_systems(Startup, setup_grid)
         .add_systems(Startup, init_temp)
         .add_systems(Update, initialize_node)
         // temporary system
         .add_systems(Update, change_frequency)
+        .add_systems(Update, keyboard_input)
         // main drawing systems
         .add_systems(Update, (plot_out, (oscil, line)).chain())
         .add_systems(PostUpdate, clear_lines)
@@ -207,59 +210,59 @@ fn setup(
     ));
 }
 
-// TODO: properly init env
-fn setup_temp(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    asset_server: Res<AssetServer>,
-    lua_assets: Res<Assets<LuaAsset>>,
-) {
-    let lua_handle: Handle<LuaAsset> = asset_server.load("lua/nodes/instrument/lua_pulse/wave.lua");
-    let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/common/instrument/wave.lua");
-
-    let oscil = Oscillator {
-        frequency_hz: FREQUENCY_TEMP,
-        lua_handle,
-        lua_util_handle,
-        lua_string: "".to_owned(),
-    };
-
-    let read = Read {};
-
-    let chain = Chain {
-        items: vec![Dsp::Input(oscil), Dsp::Read(read)],
-    };
-
-    commands.spawn(Audio::new(chain));
-
-    commands.spawn(XYLine {
-        ..Default::default()
-    });
-
-    commands.spawn(SplitLine {
-        ..Default::default()
-    });
-
-    let mesh = meshes.add(Mesh::from(shape::Circle {
-        radius: 1.0,
-        ..Default::default()
-    }));
-
-    commands.spawn((InstancingBundle {
-        mesh: Mesh2dHandle(mesh),
-        frustum_culling: NoFrustumCulling,
-        spatial: SpatialBundle::INHERITED_IDENTITY,
-        instance_material: InstanceMaterialData {
-            data: vec![InstanceData {
-                color: Color::WHITE.as_linear_rgba_f32(),
-                index: 1.0,
-                position: Vec3::new(20.0, 0.0, 0.0),
-                scale: 1.0,
-            }],
-            layer: RenderLayers::layer(OSCIL_TARGET),
-        },
-    },));
-}
+// // TODO: properly init env
+// fn setup_temp(
+//     mut commands: Commands,
+//     mut meshes: ResMut<Assets<Mesh>>,
+//     asset_server: Res<AssetServer>,
+//     lua_assets: Res<Assets<LuaAsset>>,
+// ) {
+//     let lua_handle: Handle<LuaAsset> = asset_server.load("lua/nodes/instrument/lua_pulse/wave.lua");
+//     let lua_util_handle: Handle<LuaAsset> = asset_server.load("lua/common/instrument/wave.lua");
+//
+//     let oscil = Oscillator {
+//         frequency_hz: FREQUENCY_TEMP,
+//         lua_handle,
+//         lua_util_handle,
+//         lua_string: "".to_owned(),
+//     };
+//
+//     let read = Read {};
+//
+//     let chain = Chain {
+//         items: vec![Dsp::Input(oscil), Dsp::Read(read)],
+//     };
+//
+//     commands.spawn(Audio::new(chain));
+//
+//     commands.spawn(XYLine {
+//         ..Default::default()
+//     });
+//
+//     commands.spawn(SplitLine {
+//         ..Default::default()
+//     });
+//
+//     let mesh = meshes.add(Mesh::from(shape::Circle {
+//         radius: 1.0,
+//         ..Default::default()
+//     }));
+//
+//     commands.spawn((InstancingBundle {
+//         mesh: Mesh2dHandle(mesh),
+//         frustum_culling: NoFrustumCulling,
+//         spatial: SpatialBundle::INHERITED_IDENTITY,
+//         instance_material: InstanceMaterialData {
+//             data: vec![InstanceData {
+//                 color: Color::WHITE.as_linear_rgba_f32(),
+//                 index: 1.0,
+//                 position: Vec3::new(20.0, 0.0, 0.0),
+//                 scale: 1.0,
+//             }],
+//             layer: RenderLayers::layer(OSCIL_TARGET),
+//         },
+//     },));
+// }
 
 fn change_frequency(q_control: Query<&AudioControl<Oscillator>>, time: Res<Time>) {
     if let Ok(control) = q_control.get_single() {
@@ -285,57 +288,58 @@ fn plot_out(
             return;
         }
 
-        let mut split_line = split_lines.single_mut();
-        let mut audio_line = lines.single_mut();
+        if let (Ok(mut split_line), Ok(mut audio_line)) =
+            (split_lines.get_single_mut(), lines.get_single_mut())
+        {
+            match &last_out {
+                Some(last_out) => {
+                    let end_idx = match last_out.0 >= (audio_line.buffer[0].len() - 1) {
+                        true => {
+                            error!("BUFFER OVERFLOW");
+                            error!("BUFFER OVERFLOW");
+                            error!("BUFFER OVERFLOW"); // TODO: find a better way to display that this is happening
+                            error!("BUFFER OVERFLOW"); // as its a big fuck up when this happens
+                            error!("BUFFER OVERFLOW");
+                            audio_line.buffer[0].len() - 1
+                        }
+                        false => last_out.0,
+                    };
 
-        match &last_out {
-            Some(last_out) => {
-                let end_idx = match last_out.0 >= (audio_line.buffer[0].len() - 1) {
-                    true => {
-                        error!("BUFFER OVERFLOW");
-                        error!("BUFFER OVERFLOW");
-                        error!("BUFFER OVERFLOW"); // TODO: find a better way to display that this is happening
-                        error!("BUFFER OVERFLOW"); // as its a big fuck up when this happens
-                        error!("BUFFER OVERFLOW");
-                        audio_line.buffer[0].len() - 1
-                    }
-                    false => last_out.0,
-                };
-
-                audio_line
-                    .buffer
-                    .par_iter_mut()
-                    .enumerate()
-                    .for_each(|(i, line)| {
-                        (0..end_idx).for_each(|j| {
-                            line[j] = last_out.1[i][j];
+                    audio_line
+                        .buffer
+                        .par_iter_mut()
+                        .enumerate()
+                        .for_each(|(i, line)| {
+                            (0..end_idx).for_each(|j| {
+                                line[j] = last_out.1[i][j];
+                            });
                         });
-                    });
 
-                audio_line.index = end_idx;
+                    audio_line.index = end_idx;
 
-                split_line
-                    .buffer
-                    .par_iter_mut()
-                    .enumerate()
-                    .for_each(|(i, line)| {
-                        let idx = last_out.0;
+                    split_line
+                        .buffer
+                        .par_iter_mut()
+                        .enumerate()
+                        .for_each(|(i, line)| {
+                            let idx = last_out.0;
 
-                        if idx > SPLIT_LEN {
-                            let idx = idx - SPLIT_LEN;
-                            line.clear();
-                            line.append(&mut last_out.1[i][idx..].to_vec());
-                            return ();
-                        }
+                            if idx > SPLIT_LEN {
+                                let idx = idx - SPLIT_LEN;
+                                line.clear();
+                                line.append(&mut last_out.1[i][idx..].to_vec());
+                                return ();
+                            }
 
-                        if line.len() + idx > SPLIT_LEN {
-                            line.drain(0..idx);
-                        }
+                            if line.len() + idx > SPLIT_LEN {
+                                line.drain(0..idx);
+                            }
 
-                        line.append(&mut last_out.1[i].to_vec())
-                    });
+                            line.append(&mut last_out.1[i].to_vec())
+                        });
+                }
+                None => (),
             }
-            None => (),
         }
     }
 }
@@ -350,37 +354,39 @@ fn line(
     lines: Query<&SplitLine>,
     config: Res<ConfigAsset>,
 ) {
-    let line = lines.single();
-    let (camera, camera_transform) = camera_query.single();
-    (0..line.buffer.len()).for_each(|i| {
-        gizmos.linestrip_2d(
-            to_vec2(camera, camera_transform, &line.buffer[i], &i, &config),
-            OVERLAY0.mul(3.0),
-        );
-    });
+    if let (Ok(line), Ok((camera, camera_transform))) =
+        (lines.get_single(), camera_query.get_single())
+    {
+        (0..line.buffer.len()).for_each(|i| {
+            gizmos.linestrip_2d(
+                to_vec2(camera, camera_transform, &line.buffer[i], &i, &config),
+                OVERLAY0.mul(3.0),
+            );
+        });
+    }
 }
 
 fn oscil(
     lines: Query<&XYLine>,
-    mut instance_material_data: Query<&mut InstanceMaterialData>,
+    mut instance_material_data: Query<&mut InstanceMaterialData, With<Oscil>>,
     config: Res<ConfigAsset>,
 ) {
-    let l = lines.single();
-    let mut mat_data = instance_material_data.get_single_mut().unwrap();
-
-    mat_data.data = (0..l.index)
-        .into_par_iter()
-        .map(|i| InstanceData {
-            position: Vec3::new(
-                l.buffer[0][i] * config.xy_mult,
-                l.buffer[1][i] * config.xy_mult,
-                0.0,
-            ),
-            scale: config.xy_rad,
-            index: 1.0,
-            color: OVERLAY0.as_rgba_f32(),
-        })
-        .collect();
+    if let (Ok(mut mat_data), Ok(l)) = (instance_material_data.get_single_mut(), lines.get_single())
+    {
+        mat_data.data = (0..l.index)
+            .into_par_iter()
+            .map(|i| InstanceData {
+                position: Vec3::new(
+                    l.buffer[0][i] * config.xy_mult,
+                    l.buffer[1][i] * config.xy_mult,
+                    0.0,
+                ),
+                scale: config.xy_rad,
+                index: 1.0,
+                color: OVERLAY0.as_rgba_f32(),
+            })
+            .collect();
+    }
 }
 
 fn to_vec2(

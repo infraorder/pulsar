@@ -2,7 +2,7 @@ use bevy::{
     asset::Assets,
     ecs::{
         component::Component,
-        system::{Commands, ResMut},
+        system::{Commands, Res, ResMut},
     },
     prelude::{Deref, DerefMut},
     render::{
@@ -13,11 +13,17 @@ use bevy::{
     time::Timer,
 };
 
-use crate::{instancing::InstanceMaterialData, InstancingBundle, UI_TARGET};
+use crate::{
+    components::config::ConfigAsset, instancing::InstanceMaterialData, InstancingBundle, UI_TARGET,
+};
 
 use super::{Grid, GridBundle};
 
-pub fn setup_grid(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+pub fn setup_grid(
+    config: Res<ConfigAsset>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
     let mesh = bevy::sprite::Mesh2dHandle(meshes.add(construct_grid_mesh()));
 
     let mut instance_material = InstanceMaterialData {
@@ -25,7 +31,10 @@ pub fn setup_grid(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         layer: RenderLayers::layer(UI_TARGET),
     };
     let grid = Grid::default();
-    grid.render_change(&mut instance_material.data);
+    grid.render_change(
+        &mut instance_material.data,
+        (config.grid_offset_x, config.grid_offset_y),
+    );
 
     commands.spawn((
         GridBundle {

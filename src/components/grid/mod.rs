@@ -31,7 +31,7 @@ pub struct GridBundle {
 }
 
 impl Grid {
-    pub fn render_change(&self, data: &mut Vec<InstanceData>) {
+    pub fn render_change(&self, data: &mut Vec<InstanceData>, offset: (f32, f32)) {
         info!("render change");
         data.clear();
 
@@ -46,8 +46,8 @@ impl Grid {
                         .into_iter()
                         .map(|y| InstanceData {
                             position: Vec3::new(
-                                ((x as f32) - (dim_x as f32 / 2.0)) * 10.0, // move to -1 1
-                                ((y as f32) - (dim_y as f32 / 2.0)) * 10.0,
+                                ((x as f32) - (dim_x as f32 / 2.0)) * offset.0, // move to -1 1
+                                ((y as f32) - (dim_y as f32 / 2.0)) * offset.1,
                                 -2.0,
                             ),
                             scale: 1.0,

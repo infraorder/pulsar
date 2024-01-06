@@ -24,6 +24,9 @@ pub struct ConfigAsset {
 
     pub xy_mult: f32,
     pub xy_rad: f32,
+
+    pub grid_offset_x: f32,
+    pub grid_offset_y: f32,
 }
 
 #[derive(Default, Component)]
