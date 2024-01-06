@@ -1,7 +1,7 @@
 // imports
 use std::sync::Mutex;
 
-use bevy::{asset::Handle, ecs::component::Component, render::color::Color, math::Vec2};
+use bevy::{asset::Handle, ecs::component::Component, math::Vec2, render::color::Color};
 use rlua::{Context, Error, FromLua, Lua, Table};
 
 use crate::{
@@ -61,12 +61,24 @@ pub struct NotSetup;
 #[derive(Component, Clone)]
 pub struct AudioNode;
 
+#[derive(Debug, Clone, Component)]
+pub struct OutputSlot {
+    pub idx: usize,
+    pub pos: Position,
+}
+
+#[derive(Debug, Clone, Component)]
+pub struct SenderSlot {
+    pub idx: usize,
+    pub pos: Position,
+}
+
 // Position
 /// x, y position on the grid.
 #[derive(Clone, Debug, Default)]
 pub struct Position {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl Position {

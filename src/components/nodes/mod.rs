@@ -22,7 +22,7 @@ use crate::lua::{init_instance, load_fn};
 use self::{
     types::{
         AudioNode, ChainType, Display, LuaHandle, LuaNode, LuaType, Node, NodeBP, NodeData,
-        NotSetup, Position,
+        NotSetup, Position, OutputSlot, SenderSlot,
     },
     util::{spawn_e_with_c, spawn_text2d},
 };
@@ -212,8 +212,10 @@ pub fn create_components(c: LuaNode) -> (LuaNode, Vec<OutputSlot>, Vec<SenderSlo
     let mut t = Vec::new();
     let mut s = Vec::new();
 
-    c.node.output_slots.iter().for_each(|o_s| {
+    c.node.output_slots.iter().enumerate().for_each(|i, o_s| {
         t.push(OutputSlot {
+
+            idx: i,
 
         });
     });
