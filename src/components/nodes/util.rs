@@ -19,12 +19,12 @@ use bevy::{
 
 use crate::{
     components::{config::ConfigAsset, grid::Grid},
-    util::{CRUST, MANTLE, RED},
+    util::{MANTLE, RED},
     UI_TARGET,
 };
 
 use super::types::{
-    ColorPair, InputSlot, NodeTrait, OutputSlot, PColor, ParentNode, SlotNode, SlotType,
+    ColorPair, InputSlot, NodeTrait, OutputSlot, PColor, ParentNode, Position, SlotNode, SlotType,
 };
 
 pub fn spawn_text2d(
@@ -73,20 +73,22 @@ pub fn spawn_node_with_children<
     input_slots: &mut Vec<S>,
     output_slots: &mut Vec<V>,
 ) -> Entity {
+    let parent_pos = node.pos();
+
     let e = spawn_node_with_text(grid, config, cmd, asset_server, node);
     let mut ce = cmd.entity(e);
 
     ce.with_children(|builder| {
         (0..input_slots.len()).for_each(|_| {
             let t = input_slots.pop().unwrap();
-            spawn_child_node_with_text(grid, config, builder, asset_server, t);
+            spawn_child_node_with_text(grid, config, builder, asset_server, t, &parent_pos);
         });
     });
 
     ce.with_children(|builder| {
         (0..output_slots.len()).for_each(|_| {
             let t = output_slots.pop().unwrap();
-            spawn_child_node_with_text(grid, config, builder, asset_server, t);
+            spawn_child_node_with_text(grid, config, builder, asset_server, t, &parent_pos);
         });
     });
 
@@ -101,6 +103,9 @@ pub fn spawn_node_with_text<T: NodeTrait + Component>(
     node: T,
 ) -> Entity {
     let node_pos = node.pos();
+
+    info!("spawning node at pos: {:?}", node_pos);
+
     let node_name = node.display();
     let node_color = node.get_inert();
 
@@ -126,8 +131,11 @@ pub fn spawn_child_node_with_text<T: NodeTrait + Component>(
     cmd: &mut ChildBuilder,
     asset_server: &Res<AssetServer>,
     node: T,
+    parent_pos: &Position,
 ) -> Entity {
-    let node_pos = node.pos();
+    let node_pos = node.pos().offset(parent_pos.clone());
+
+    info!("spawning node at pos: {:?}", node_pos);
 
     let node_name = node.display();
     let node_color = node.get_inert();

@@ -2,7 +2,7 @@ use bevy::render::color::Color;
 use rlua::{Context, Error, FromLua, Table, ToLua};
 
 use super::super::types::{
-    ChainType, ColorPair, Node, NodeData, NodeState, PColor, Position, Slot, SlotE, SlotType,
+    NodeType, ColorPair, Node, NodeData, NodeStatus, PColor, Position, Slot, SlotData, SlotType,
 };
 
 // Impl of FromLua for all types
@@ -22,7 +22,7 @@ impl<'lua> FromLua<'lua> for Node {
 
                 node.ntype = table
                     .get::<_, Table>("ntype")?
-                    .sequence_values::<ChainType>()
+                    .sequence_values::<NodeType>()
                     .map(|tv| tv.unwrap())
                     .collect();
 
@@ -145,10 +145,12 @@ impl<'lua> FromLua<'lua> for Slot {
 
                 slot.pos = table.get::<_, Position>("pos")?;
 
-                slot.signal_type = table.get::<_, ChainType>("signal_type")?;
+                slot.signal_type = table.get::<_, NodeType>("signal_type")?;
 
                 slot.slot_type = table.get::<_, SlotType>("slot_type")?;
 
+                slot.direction = table.get::<_, Position>("direction")?;
+                
                 Ok(slot)
             }
             _ => Err(Error::FromLuaConversionError {
@@ -170,16 +172,16 @@ impl<'lua> ToLua<'lua> for Slot {
     }
 }
 
-impl<'lua> FromLua<'lua> for ChainType {
+impl<'lua> FromLua<'lua> for NodeType {
     fn from_lua(value: rlua::prelude::LuaValue<'lua>, _ctx: Context<'lua>) -> Result<Self, Error> {
         match value {
             rlua::Value::String(str) => Ok(match str.to_str()? {
-                "Signal" => ChainType::Signal,
-                "SignalConst" => ChainType::SignalConst,
-                "SignalLink" => ChainType::SignalLink,
-                "Emitter" => ChainType::Emitter,
-                "Receiver" => ChainType::Receiver,
-                _ => ChainType::None,
+                "Signal" => NodeType::Signal,
+                "SignalConst" => NodeType::SignalConst,
+                "SignalLink" => NodeType::SignalLink,
+                "Emitter" => NodeType::Emitter,
+                "Receiver" => NodeType::Receiver,
+                _ => NodeType::None,
             }),
             _ => Err(Error::FromLuaConversionError {
                 from: "String",
@@ -190,15 +192,16 @@ impl<'lua> FromLua<'lua> for ChainType {
     }
 }
 
-impl<'lua> ToLua<'lua> for ChainType {
+impl<'lua> ToLua<'lua> for NodeType {
     fn to_lua(self, ctx: Context<'lua>) -> Result<rlua::Value<'lua>, Error> {
         match self {
-            ChainType::Signal => Ok("Signal".to_lua(ctx)?),
-            ChainType::SignalConst => Ok("SignalConst".to_lua(ctx)?),
-            ChainType::SignalLink => Ok("SignalLink".to_lua(ctx)?),
-            ChainType::Emitter => Ok("Emitter".to_lua(ctx)?),
-            ChainType::Receiver => Ok("Receiver".to_lua(ctx)?),
-            ChainType::None => Ok("None".to_lua(ctx)?),
+            NodeType::Signal => Ok("Signal".to_lua(ctx)?),
+            NodeType::SignalConst => Ok("SignalConst".to_lua(ctx)?),
+            NodeType::SignalLink => Ok("SignalLink".to_lua(ctx)?),
+            NodeType::Emitter => Ok("Emitter".to_lua(ctx)?),
+            NodeType::Receiver => Ok("Receiver".to_lua(ctx)?),
+            NodeType::Prod => Ok("Prod".to_lua(ctx)?),
+            NodeType::None => Ok("None".to_lua(ctx)?),
         }
     }
 }
@@ -251,13 +254,13 @@ impl<'lua> FromLua<'lua> for NodeData {
 
                 node.slot_data = table
                     .get::<_, Table>("slot_data")?
-                    .sequence_values::<SlotE>()
+                    .sequence_values::<SlotData>()
                     .map(|tv| tv.unwrap())
                     .collect();
 
                 node.output_slot_data = table
                     .get::<_, Table>("output_slot_data")?
-                    .sequence_values::<SlotE>()
+                    .sequence_values::<SlotData>()
                     .map(|tv| tv.unwrap())
                     .collect();
 
@@ -267,7 +270,9 @@ impl<'lua> FromLua<'lua> for NodeData {
                     .map(|tv| tv.unwrap())
                     .collect();
 
-                node.state = table.get::<_, NodeState>("state")?;
+                node.state = table.get::<_, NodeStatus>("state")?;
+
+                node.data = table.get::<_, SlotData>("data")?;
 
                 Ok(node)
             }
@@ -303,13 +308,14 @@ impl<'lua> ToLua<'lua> for NodeData {
     }
 }
 
-impl<'lua> FromLua<'lua> for SlotE {
+impl<'lua> FromLua<'lua> for SlotData {
     fn from_lua(value: rlua::prelude::LuaValue<'lua>, _ctx: Context<'lua>) -> Result<Self, Error> {
         match value {
-            rlua::Value::Integer(i) => Ok(SlotE::I32(i as i32)),
-            rlua::Value::Number(i) => Ok(SlotE::F32(i as f32)),
-            rlua::Value::Boolean(i) => Ok(SlotE::Bang(i)),
-            rlua::Value::Table(t) => Ok(SlotE::F32x2((t.get::<_, f32>(1)?, t.get::<_, f32>(2)?))),
+            rlua::Value::Integer(i) => Ok(SlotData::I32(i as i32)),
+            rlua::Value::Number(i) => Ok(SlotData::F32(i as f32)),
+            rlua::Value::Boolean(i) => Ok(SlotData::Bang(i)),
+            rlua::Value::Table(t) => Ok(SlotData::F32x2((t.get::<_, f32>(1)?, t.get::<_, f32>(2)?))),
+            rlua::Value::Nil => Ok(SlotData::None),
             _ => Err(Error::FromLuaConversionError {
                 from: "Node",
                 to: "Node",
@@ -319,19 +325,20 @@ impl<'lua> FromLua<'lua> for SlotE {
     }
 }
 
-impl<'lua> ToLua<'lua> for SlotE {
+impl<'lua> ToLua<'lua> for SlotData {
     fn to_lua(self, ctx: Context<'lua>) -> Result<rlua::Value<'lua>, Error> {
         match self {
-            SlotE::F32(f) => Ok(f.to_lua(ctx)?),
-            SlotE::I32(i) => Ok(i.to_lua(ctx)?),
-            SlotE::Bang(b) => Ok(b.to_lua(ctx)?),
-            SlotE::F32x2(t) => {
+            SlotData::F32(f) => Ok(f.to_lua(ctx)?),
+            SlotData::I32(i) => Ok(i.to_lua(ctx)?),
+            SlotData::Bang(b) => Ok(b.to_lua(ctx)?),
+            SlotData::F32x2(t) => {
                 let table = ctx.create_table()?;
                 table.set(1, t.0)?;
                 table.set(2, t.1)?;
 
                 Ok(table.to_lua(ctx)?)
             }
+            SlotData::None => Ok(rlua::Value::Nil),
         }
     }
 }
@@ -365,14 +372,14 @@ impl<'lua> ToLua<'lua> for Position {
     }
 }
 
-impl<'lua> FromLua<'lua> for NodeState {
+impl<'lua> FromLua<'lua> for NodeStatus {
     fn from_lua(value: rlua::prelude::LuaValue<'lua>, _ctx: Context<'lua>) -> Result<Self, Error> {
         match value {
             rlua::Value::String(str) => Ok(match str.to_str()? {
-                "Active" => NodeState::Active,
-                "Inactive" => NodeState::Inactive,
-                "Inert" => NodeState::Inert,
-                _ => NodeState::None,
+                "Active" => NodeStatus::Active,
+                "Inactive" => NodeStatus::Inactive,
+                "Inert" => NodeStatus::Inert,
+                _ => NodeStatus::None,
             }),
             _ => Err(Error::FromLuaConversionError {
                 from: "String",
@@ -383,12 +390,12 @@ impl<'lua> FromLua<'lua> for NodeState {
     }
 }
 
-impl<'lua> ToLua<'lua> for NodeState {
+impl<'lua> ToLua<'lua> for NodeStatus {
     fn to_lua(self, ctx: Context<'lua>) -> Result<rlua::Value<'lua>, Error> {
         match self {
-            NodeState::Active => Ok("Active".to_lua(ctx)?),
-            NodeState::Inactive => Ok("Inactive".to_lua(ctx)?),
-            NodeState::Inert => Ok("Inert".to_lua(ctx)?),
+            NodeStatus::Active => Ok("Active".to_lua(ctx)?),
+            NodeStatus::Inactive => Ok("Inactive".to_lua(ctx)?),
+            NodeStatus::Inert => Ok("Inert".to_lua(ctx)?),
             _ => Ok("None".to_lua(ctx)?),
         }
     }

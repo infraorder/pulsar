@@ -50,7 +50,7 @@ use post::feedback::FeedbackBundle;
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
-use util::{BASE, CRUST, OVERLAY0};
+use util::{CRUST, OVERLAY0};
 
 const OSCIL_TARGET: u8 = 1;
 const UI_TARGET: u8 = 0;
@@ -73,9 +73,10 @@ fn main() {
     use std::fs;
 
     use bevy::{
-        app::PostUpdate,
+        app::{FixedUpdate, PostUpdate},
         ecs::schedule::IntoSystemConfigs,
         render::texture::ImagePlugin,
+        time::Fixed,
         window::{PresentMode, Window, WindowPlugin, WindowResolution},
     };
     use bevy_egui::EguiPlugin;
@@ -85,7 +86,14 @@ fn main() {
             config::ConfigLoader,
             grid::system::setup_grid,
             lua::LuaLoader,
-            nodes::system::{init_temp, initialize_node, keyboard_input},
+            nodes::{
+                blueprints::{init_temp_blueprints, initialize_node},
+                generic::{
+                    system::{spawn_audio_pulses, tick_pulses},
+                    types::AudioNodeChangeEvent,
+                },
+                system::keyboard_input_temp,
+            },
         },
         dsp::audio_graph::AudioPlugin,
         instancing::InstanceMaterial2dPlugin,
@@ -126,6 +134,7 @@ fn main() {
             InstanceMaterial2dPlugin,
             AudioPlugin,
         ))
+        .add_event::<AudioNodeChangeEvent>()
         .insert_resource(Msaa::Sample8)
         .insert_resource(config)
         .init_asset::<LuaAsset>()
@@ -138,18 +147,25 @@ fn main() {
         // .add_systems(Startup, setup_temp)
         // .add_systems(Startup, setup_grid) // TODO: Re-Add
         .add_systems(Startup, setup_grid)
-        .add_systems(Startup, init_temp)
+        .add_systems(Startup, init_temp_blueprints)
         .add_systems(Update, initialize_node)
         // temporary system
         .add_systems(Update, change_frequency)
-        .add_systems(Update, keyboard_input)
+        .add_systems(Update, keyboard_input_temp)
         // main drawing systems
         .add_systems(Update, (plot_out, (oscil, line)).chain())
         .add_systems(PostUpdate, clear_lines)
         // fps counter systems
         .add_systems(Update, (fps_text_update_system, fps_counter_showhide))
+        // time update
+        .add_systems(FixedUpdate, tick_pulses)
         // update config
         .add_systems(PostUpdate, update_config)
+        //events
+        .add_systems(PostUpdate, spawn_audio_pulses)
+        .insert_resource(Time::<Fixed>::from_seconds(
+            (60.0 /* one minute */ / 120.0/* BPM */) / 8.0, /* 8 times */
+        ))
         .run()
 }
 

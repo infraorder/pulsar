@@ -90,7 +90,7 @@ impl Grid {
         self.add_to_grid(entity, npos);
     }
 
-    pub fn get_entities(&self, pos: (i32, i32)) -> Option<Entity> {
+    pub fn get_entity(&self, pos: (i32, i32)) -> Option<Entity> {
         self.map.get(&pos).cloned()
     }
 

@@ -1,12 +1,9 @@
-// imports
-use std::sync::Mutex;
-
-use crate::{
-    components::lua::LuaAsset,
-    util::{MANTLE, MAROON},
+use crate::util::{MANTLE, MAROON};
+use bevy::{
+    ecs::{component::Component, entity::Entity},
+    math::Vec2,
+    render::color::Color,
 };
-use bevy::{asset::Handle, ecs::component::Component, math::Vec2, render::color::Color};
-use rlua::Lua;
 
 // Color
 /// Struct for passing colors to lua.
@@ -62,13 +59,20 @@ pub trait ParentNode {
 #[derive(Component, Clone)]
 pub struct NodeBP;
 
+#[derive(Component, Clone, Default)]
+pub struct Pulse {
+    pub direction: Position,
+}
+
 /// This Component denotes that a node is not setup yet
 #[derive(Component, Clone)]
 pub struct NotSetup;
 
 /// All entities with this node deal with audio processing.
 #[derive(Component, Clone)]
-pub struct AudioNode;
+pub struct AudioNode {
+    pub connection: Option<Entity>,
+}
 
 #[derive(Debug, Clone, Component)]
 pub struct OutputSlot {
@@ -166,14 +170,14 @@ impl Position {
 pub struct Slot {
     pub pos: Position,
     pub slot_type: SlotType,
-    pub signal_type: ChainType,
+    pub signal_type: NodeType,
+    pub direction: Position,
 }
-
 
 #[derive(Component, Clone, Debug)]
 pub struct SlotNode {
     pub slot_type: SlotType,
-    pub signal_type: ChainType,
+    pub signal_type: NodeType,
     pub pos: Position,
     pub display: String,
     pub name: String,
@@ -189,10 +193,12 @@ pub struct Node {
     pub name: String,
     pub display: String,
     pub pos: Position,
+
     pub active: ColorPair,
     pub inert: ColorPair,
     pub inactive: ColorPair,
-    pub ntype: Vec<ChainType>,
+
+    pub ntype: Vec<NodeType>,
     pub slots: Vec<Slot>,
     pub output_slots: Vec<Slot>,
 }
@@ -200,16 +206,27 @@ pub struct Node {
 /// Data object for the node - All nodes should have this struct.
 #[derive(Clone, Default, Debug)]
 pub struct NodeData {
-    pub slot_data: Vec<SlotE>,
-    pub output_slot_data: Vec<SlotE>,
+    pub data: SlotData,
+    pub slot_data: Vec<SlotData>,
+    pub output_slot_data: Vec<SlotData>,
+
     pub updated: Vec<Position>,
-    pub state: NodeState,
+    pub state: NodeStatus,
+
+    pub commands: Vec<NodeCommand>,
+}
+
+#[derive(Clone, Default, Debug)]
+pub enum NodeCommand {
+    SpawnNode(Node),
+    #[default]
+    None,
 }
 
 // TYPES
 /// Current state of the node - in order to control logic
 #[derive(Clone, Default, Debug)]
-pub enum NodeState {
+pub enum NodeStatus {
     Active,
     Inert,
     #[default]
@@ -219,10 +236,13 @@ pub enum NodeState {
 
 /// Type of a node, in order to control logic
 #[derive(Clone, Debug, Default)]
-pub enum ChainType {
+pub enum NodeType {
     Signal,
     SignalConst,
     SignalLink, // realtime signal for audio
+
+    Prod,
+
     Emitter,
     Receiver,
     #[default]
@@ -244,18 +264,20 @@ pub enum SlotType {
 }
 
 // Slot type - for converting from lua
-#[derive(Clone, Debug)]
-pub enum SlotE {
+#[derive(Clone, Debug, Default)]
+pub enum SlotData {
     F32(f32),
     I32(i32),
 
     F32x2((f32, f32)),
 
     Bang(bool),
+    #[default]
+    None,
 }
 
 #[derive(Clone, Debug)]
-pub enum NodeType {
+pub enum ChannelType {
     Instrument,
     Transmitter,
 }

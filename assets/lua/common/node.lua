@@ -51,11 +51,12 @@ data = {
     slot_data = {},
     output_slot_data = {},
     state = NODE_STATE.None,
+    data = Nil
 }
 
 RESET = function()
-    node_data.updated = {}
-    node_data.slot_data = {}
-    node_data.output_slot_data = {}
-    node_data.state = NODE_STATE.None
+    data.updated = {}
+    data.slot_data = {}
+    data.output_slot_data = {}
+    data.state = NODE_STATE.None
 end
