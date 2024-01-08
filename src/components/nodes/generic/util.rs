@@ -1,6 +1,9 @@
 use crate::components::nodes::{
     native::NativeNode,
-    types::{Node, NodeData, NodeStatus, NodeType, SlotData, Position, NodeVarient},
+    types::{
+        Node, NodeData, NodeStatus, NodeTrait, NodeType, NodeVarient, ParentNode, Position, Pulse,
+        SlotData,
+    },
 };
 
 use super::GenericNode;
@@ -29,4 +32,10 @@ pub fn construct_pulse_node(
         lua: None,
         handles: None,
     })
+}
+
+pub fn calculate_grid_pos<T: ParentNode>(node: &T, pulse: &Pulse, pos: Position) -> Position {
+    pos
+        .offset(&node.get_node().pos)
+        .offset(&node.get_node().output_slots[pulse.slot_idx].pos)
 }

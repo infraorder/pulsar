@@ -70,8 +70,9 @@ pub trait ParentNode {
 #[derive(Component, Clone)]
 pub struct NodeBP;
 
-#[derive(Component, Clone, Default)]
+#[derive(Component, Clone, Default, Copy)]
 pub struct Pulse {
+    pub slot_idx: usize,
     pub direction: Position,
 }
 
@@ -151,7 +152,7 @@ impl NodeTrait for InputSlot {
 
 // Position
 /// x, y position on the grid.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Copy)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -170,7 +171,7 @@ impl Position {
         (self.x, self.y)
     }
 
-    pub fn offset(&self, pos: Position) -> Position {
+    pub fn offset(&self, pos: &Position) -> Position {
         Position::new(self.x + pos.x, self.y + pos.y)
     }
 }

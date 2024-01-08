@@ -14,7 +14,7 @@ use bevy::{
     render::{color::Color, view::RenderLayers},
     sprite::{Sprite, SpriteBundle},
     text::{Text, Text2dBounds, Text2dBundle, TextAlignment, TextSection, TextStyle},
-    transform::components::Transform,
+    transform::components::{GlobalTransform, Transform},
 };
 
 use crate::{
@@ -106,7 +106,11 @@ pub fn spawn_node_with_text<T: NodeTrait + Component>(
 ) -> Entity {
     let node_pos = node.pos();
 
-    info!("spawning node at pos: {:?}", node_pos);
+    info!(
+        "spawning node at pos: {:?}, name: {}",
+        node_pos,
+        node.name().to_string()
+    );
 
     let node_name = node.display();
     let node_color = node.get_inert();
@@ -122,7 +126,7 @@ pub fn spawn_node_with_text<T: NodeTrait + Component>(
         ));
     });
 
-    grid.map.insert(node_pos.to_tuple(), ce.id());
+    grid.add_to_grid(ce.id(), node_pos.to_tuple());
 
     return ce.id();
 }
@@ -135,9 +139,13 @@ pub fn spawn_child_node_with_text<T: NodeTrait + Component>(
     node: T,
     parent_pos: &Position,
 ) -> Entity {
-    let node_pos = node.pos().offset(parent_pos.clone());
+    let node_pos = node.pos().offset(parent_pos);
 
-    info!("spawning node at pos: {:?}", node_pos);
+    info!(
+        "spawning node at pos: {:?}, name: {}",
+        node_pos,
+        node.name().to_string()
+    );
 
     let node_name = node.display();
     let node_color = node.get_inert();
@@ -153,7 +161,8 @@ pub fn spawn_child_node_with_text<T: NodeTrait + Component>(
         ));
     });
 
-    grid.map.insert(node_pos.to_tuple(), ce.id());
+    info!("inserting into grid: {:?}", node_pos);
+    grid.add_to_grid(ce.id(), node_pos.to_tuple());
 
     return ce.id();
 }
@@ -210,7 +219,7 @@ pub fn create_default_components<T: NodeTrait + ParentNode + Component>(
                 slot_type: os.slot_type.clone(),
                 signal_type: os.signal_type.clone(),
                 display: get_slot_name(false, &os.slot_type),
-                name: NodeVarient::Custom(get_slot_name(true, &os.slot_type)), // TODO: get actual name
+                name: NodeVarient::Custom(get_slot_name(false, &os.slot_type)), // TODO: get actual name
                 pos: os.pos.clone(),
                 active: slot_active(),
                 inert: slot_inert(),

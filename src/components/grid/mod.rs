@@ -4,6 +4,7 @@ use bevy::{
     ecs::{bundle::Bundle, component::Component, entity::Entity},
     log::info,
     math::Vec3,
+    reflect::Map,
     utils::HashMap,
 };
 
@@ -73,15 +74,18 @@ impl Grid {
     pub fn add_to_grid(&mut self, entity: Entity, pos: (i32, i32)) {
         // check if pos of grid x, y contains
 
-        if self.map.contains_key(&pos) {
+        if self.map.get(&pos).is_some() {
             // TODO: do something with this
             panic!("SHOULD not insert where data exists");
         }
+
+        info!("adding to grid: {:?}, {:?}", pos, &entity);
 
         self.map.entry(pos).insert(entity);
     }
 
     pub fn remove_from_grid(&mut self, pos: (i32, i32)) {
+        info!("removing from grid: {:?}", pos);
         self.map.remove(&pos);
     }
 
@@ -95,7 +99,7 @@ impl Grid {
     }
 
     pub fn exists(&self, pos: (i32, i32)) -> bool {
-        self.map.contains_key(&pos)
+        self.map.get(&pos).is_some()
     }
 
     pub fn check_collision<
@@ -113,14 +117,14 @@ impl Grid {
         }
 
         for slot in input_slots.iter() {
-            if self.exists(slot.pos().offset(node.pos()).to_tuple()) {
+            if self.exists(slot.pos().offset(&node.pos()).to_tuple()) {
                 return Err(anyhow::anyhow!("collision"));
             }
         }
 
         for slot in output_slots.iter() {
-            if self.exists(slot.pos().offset(node.pos()).to_tuple()) {
-            return Err(anyhow::anyhow!("collision"));
+            if self.exists(slot.pos().offset(&node.pos()).to_tuple()) {
+                return Err(anyhow::anyhow!("collision"));
             }
         }
 

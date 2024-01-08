@@ -1,14 +1,14 @@
-use std::ops::Mul;
+use std::ops::{Mul, Neg};
 
 use bevy::{
     asset::AssetServer,
     ecs::{
         entity::Entity,
-        event::EventReader,
+        event::{EventReader, EventWriter},
         query::{With, Without},
         system::{Commands, Query, Res},
     },
-    hierarchy::{DespawnRecursiveExt, Parent},
+    hierarchy::{BuildChildren, DespawnRecursiveExt, Parent},
     log::info,
     math::Vec2,
     transform::components::Transform,
@@ -18,9 +18,11 @@ use crate::components::{
     config::ConfigAsset,
     grid::Grid,
     nodes::{
-        generic::util::construct_pulse_node,
-        types::{InputSlot, NodeType, NodeVarient, ParentNode, Pulse, SlotData},
-        util::spawn_node_with_text,
+        generic::util::{calculate_grid_pos, construct_pulse_node},
+        types::{
+            InputSlot, NodeTrait, NodeType, NodeVarient, ParentNode, Position, Pulse, SlotData,
+        },
+        util::{spawn_child_node_with_text, spawn_node_with_text},
     },
 };
 
@@ -32,14 +34,14 @@ pub fn spawn_audio_pulses(
     config: Res<ConfigAsset>,
     mut g_query: Query<&mut Grid>,
     asset_server: Res<AssetServer>,
-    query: Query<&GenericNode>,
+    query: Query<(Entity, &GenericNode)>,
 ) {
     if let Ok(mut grid) = g_query.get_single_mut() {
         for ev in ev_audio_node_change.read() {
             info!("audio node change event {:?}", ev.0);
 
             commands.get_entity(ev.0).unwrap();
-            let node = query.get(ev.0).unwrap();
+            let (entity, node) = query.get(ev.0).unwrap();
 
             node.get_node()
                 .output_slots
@@ -48,27 +50,30 @@ pub fn spawn_audio_pulses(
                 .for_each(|(i, slot)| match slot.signal_type {
                     NodeType::SignalLink => {
                         let direction = node.get_node().output_slots[i].direction.clone();
-                        let position = node
-                            .get_node()
-                            .pos
-                            .offset(node.get_node().output_slots[i].pos.clone())
-                            .offset(direction.clone());
                         let name = NodeVarient::AudioProd;
                         let display = "D".to_string();
                         let ntype = vec![NodeType::Prod];
                         let data = SlotData::Bang(true);
 
-                        let node = construct_pulse_node(position, name, display, ntype, data);
-
-                        let e = spawn_node_with_text(
-                            &mut grid,
-                            &config,
-                            &mut commands,
-                            &asset_server,
-                            node,
-                        );
-
-                        commands.entity(e).insert(Pulse { direction });
+                        let pulse = Pulse {
+                            slot_idx: i,
+                            direction: direction.clone(),
+                        };
+                        let pos = calculate_grid_pos(node, &pulse, direction.clone());
+                        info!("pos: {:?}", pos);
+                        let node = construct_pulse_node(pos.clone(), name, display, ntype, data);
+                        let mut child_entity = None;
+                        commands.entity(entity).with_children(|cb| {
+                            child_entity = Some(spawn_child_node_with_text(
+                                &mut grid,
+                                &config,
+                                cb,
+                                &asset_server,
+                                node,
+                                &Position::new(0, 0),
+                            ));
+                        });
+                        commands.entity(child_entity.unwrap()).insert(pulse);
                     }
                     _ => (),
                 });
@@ -80,21 +85,39 @@ pub fn tick_pulses(
     mut commands: Commands,
     mut g_query: Query<&mut Grid>,
     config: Res<ConfigAsset>,
-    mut query: Query<(Entity, &mut GenericNode, &Pulse, &mut Transform), With<Pulse>>,
+    mut query: Query<(Entity, &Parent, &mut GenericNode, &Pulse, &mut Transform), With<Pulse>>,
     mut node_query: Query<&mut GenericNode, Without<Pulse>>,
     input_node_query: Query<(&Parent, &mut InputSlot)>,
+    mut ev_audio_change: EventWriter<AudioNodeChangeEvent>,
 ) {
     let box_size = Vec2::new(config.grid_offset_x, config.grid_offset_y);
 
     if let Some(mut grid) = g_query.iter_mut().next() {
-        for (entity, mut node, pulse, mut tform) in query.iter_mut() {
-            let node_data = node.get_data().clone();
-            let node = node.get_node_mut();
-            let new_pos = node.pos.offset(pulse.direction.clone());
+        for (entity, parent, mut gnode, pulse, mut tform) in query.iter_mut() {
+            let node_data = gnode.get_data().clone();
+            let node = gnode.get_node_mut();
 
-            // TODO: CHECK if there is a node in the new position
+            let new_pos = node.pos.offset(&pulse.direction);
+
+            info!("CURRENT POS: {:?}", node.pos);
+            info!("NEW POS: {:?}", new_pos);
+
+            if new_pos.x > grid.dims.0
+                || new_pos.x < -grid.dims.0
+                || new_pos.y > grid.dims.1
+                || new_pos.y < -grid.dims.1
+            {
+                info!("despawning pulse node");
+                grid.remove_from_grid(node.pos.to_tuple());
+                commands.entity(entity).despawn_recursive();
+                ev_audio_change.send(AudioNodeChangeEvent(parent.get()));
+                continue;
+            }
+
             match grid.get_entity(new_pos.to_tuple()) {
                 Some(e) => {
+                    info!("found entity: {:?}", e);
+
                     if let Ok((parent_entity, input_slot)) = input_node_query.get(e) {
                         let idx = input_slot.idx;
 
@@ -104,10 +127,12 @@ pub fn tick_pulses(
                             lnode_data.slot_data[idx] = (&node_data.data).clone();
                             lnode_data.updated.push(idx);
                         }
-
-                        grid.remove_from_grid(node.pos.to_tuple());
-                        commands.entity(entity).despawn_recursive();
+                    } else {
+                        ev_audio_change.send(AudioNodeChangeEvent(parent.get()));
                     }
+
+                    grid.remove_from_grid(node.pos.to_tuple());
+                    commands.entity(entity).despawn_recursive();
                 }
                 None => {
                     grid.move_entity(entity, node.pos.to_tuple(), new_pos.to_tuple());
@@ -145,7 +170,15 @@ pub fn tick_logic(
                 GenericNode::Native(_) => {
                     let gen_node = gn.get_native_node_mut().unwrap();
 
-                    match gen_node.node.name {}
+                    // match gen_node.node.name {
+                    //
+                    //     // NodeVarient::LuaRead => {
+                    //     //
+                    //     // }
+                    //
+                    //
+                    //
+                    // }
 
                     let data = gen_node.data.clone();
                 }
