@@ -1,8 +1,10 @@
 use bevy::render::color::Color;
 use rlua::{Context, Error, FromLua, Table, ToLua};
 
+use crate::components::nodes::types::NodeVarient;
+
 use super::super::types::{
-    NodeType, ColorPair, Node, NodeData, NodeStatus, PColor, Position, Slot, SlotData, SlotType,
+    ColorPair, Node, NodeData, NodeStatus, NodeType, PColor, Position, Slot, SlotData, SlotType,
 };
 
 // Impl of FromLua for all types
@@ -11,7 +13,7 @@ impl<'lua> FromLua<'lua> for Node {
         match value {
             rlua::Value::Table(table) => {
                 let mut node = Node::default();
-                node.name = table.get::<_, String>("name")?;
+                node.name = table.get::<_, NodeVarient>("name")?;
                 node.display = table.get::<_, String>("display")?;
 
                 node.pos = table.get::<_, Position>("pos")?;
@@ -150,7 +152,7 @@ impl<'lua> FromLua<'lua> for Slot {
                 slot.slot_type = table.get::<_, SlotType>("slot_type")?;
 
                 slot.direction = table.get::<_, Position>("direction")?;
-                
+
                 Ok(slot)
             }
             _ => Err(Error::FromLuaConversionError {
@@ -214,7 +216,6 @@ impl<'lua> FromLua<'lua> for SlotType {
                 "I32" => SlotType::I32,
 
                 "F32x2" => SlotType::F32x2,
-                "I32x2" => SlotType::I32x2,
 
                 "Bang" => SlotType::Bang,
 
@@ -235,7 +236,6 @@ impl<'lua> ToLua<'lua> for SlotType {
             SlotType::F32 => Ok("F32".to_lua(ctx)?),
             SlotType::I32 => Ok("I32".to_lua(ctx)?),
             SlotType::F32x2 => Ok("F32x2".to_lua(ctx)?),
-            SlotType::I32x2 => Ok("I32x2".to_lua(ctx)?),
             SlotType::Bang => Ok("Bang".to_lua(ctx)?),
             SlotType::None => Err(Error::ToLuaConversionError {
                 from: "SlotType",
@@ -266,7 +266,7 @@ impl<'lua> FromLua<'lua> for NodeData {
 
                 node.updated = table
                     .get::<_, Table>("updated")?
-                    .sequence_values::<Position>()
+                    .sequence_values::<usize>()
                     .map(|tv| tv.unwrap())
                     .collect();
 
@@ -277,8 +277,8 @@ impl<'lua> FromLua<'lua> for NodeData {
                 Ok(node)
             }
             _ => Err(Error::FromLuaConversionError {
-                from: "Node",
-                to: "Node",
+                from: "NodeData",
+                to: "NodeData",
                 message: Some("Table node does not exist".to_string()),
             }),
         }
@@ -314,7 +314,9 @@ impl<'lua> FromLua<'lua> for SlotData {
             rlua::Value::Integer(i) => Ok(SlotData::I32(i as i32)),
             rlua::Value::Number(i) => Ok(SlotData::F32(i as f32)),
             rlua::Value::Boolean(i) => Ok(SlotData::Bang(i)),
-            rlua::Value::Table(t) => Ok(SlotData::F32x2((t.get::<_, f32>(1)?, t.get::<_, f32>(2)?))),
+            rlua::Value::Table(t) => {
+                Ok(SlotData::F32x2((t.get::<_, f32>(1)?, t.get::<_, f32>(2)?)))
+            }
             rlua::Value::Nil => Ok(SlotData::None),
             _ => Err(Error::FromLuaConversionError {
                 from: "Node",
@@ -396,6 +398,36 @@ impl<'lua> ToLua<'lua> for NodeStatus {
             NodeStatus::Active => Ok("Active".to_lua(ctx)?),
             NodeStatus::Inactive => Ok("Inactive".to_lua(ctx)?),
             NodeStatus::Inert => Ok("Inert".to_lua(ctx)?),
+            _ => Ok("None".to_lua(ctx)?),
+        }
+    }
+}
+
+impl<'lua> FromLua<'lua> for NodeVarient {
+    fn from_lua(value: rlua::prelude::LuaValue<'lua>, _ctx: Context<'lua>) -> Result<Self, Error> {
+        match value {
+            rlua::Value::String(str) => Ok(match str.to_str()? {
+                "lua_read" => NodeVarient::LuaRead,
+                "lua_pulse" => NodeVarient::LuaPulse,
+                s => NodeVarient::Custom(s.to_string()),
+            }),
+            rlua::Value::Nil => Ok(NodeVarient::None),
+            _ => Err(Error::FromLuaConversionError {
+                from: "String",
+                to: "ChainType",
+                message: Some("Chain Type Does not exist".to_string()),
+            }),
+        }
+    }
+}
+
+impl<'lua> ToLua<'lua> for NodeVarient {
+    fn to_lua(self, ctx: Context<'lua>) -> Result<rlua::Value<'lua>, Error> {
+        match self {
+            NodeVarient::LuaRead => Ok("lua_read".to_lua(ctx)?),
+            NodeVarient::LuaPulse => Ok("lua_pulse".to_lua(ctx)?),
+            NodeVarient::Custom(s) => Ok(s.to_lua(ctx)?),
+            NodeVarient::None => Ok(rlua::Value::Nil),
             _ => Ok("None".to_lua(ctx)?),
         }
     }

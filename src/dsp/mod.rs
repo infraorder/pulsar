@@ -1,3 +1,5 @@
+use bevy::ecs::entity::Entity;
+
 use self::{
     oscillators::{Oscillator, OscillatorControl, OscillatorStream},
     read::{Read, ReadControl, ReadStream},
@@ -7,6 +9,7 @@ pub mod audio_graph;
 pub mod oscillators;
 pub mod read;
 
+#[derive(Clone)]
 pub enum Dsp {
     Input(Oscillator),
     Read(Read),
@@ -32,12 +35,17 @@ pub struct Chain {
 }
 
 // TODO: switch to this
+#[derive(Clone, Default)]
 pub enum ChainType {
     Dsp(Dsp),
-    SubChain(Chain),
-    ChainList(Vec<Chain>),
+    Chain(TChain),
+    ChainList(Vec<TChain>),
+    #[default]
+    None,
 }
 
+#[derive(Clone, Default)]
 pub struct TChain {
     t: Box<ChainType>,
+    e: Option<Entity>,
 }

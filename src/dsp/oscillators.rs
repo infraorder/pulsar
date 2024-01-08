@@ -31,6 +31,7 @@ use super::{
 
 const OUT: &str = "OUT_FN";
 
+#[derive(Clone)]
 pub struct Oscillator {
     pub lua_handle: Handle<LuaAsset>,
     pub lua_util_handle: Handle<LuaAsset>,

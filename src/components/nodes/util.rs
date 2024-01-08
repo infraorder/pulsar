@@ -24,7 +24,8 @@ use crate::{
 };
 
 use super::types::{
-    ColorPair, InputSlot, NodeTrait, OutputSlot, PColor, ParentNode, Position, SlotNode, SlotType,
+    ColorPair, InputSlot, NodeTrait, NodeVarient, OutputSlot, PColor, ParentNode, Position,
+    SlotNode, SlotType,
 };
 
 pub fn spawn_text2d(
@@ -42,7 +43,7 @@ pub fn spawn_text2d(
             sections: vec![TextSection::new(
                 name,
                 TextStyle {
-                    font: asset_server.load("fonts/pulsar_font.ttf"),
+                    font: asset_server.load("fonts/space_mono/SpaceMono-Bold.ttf"),
                     font_size: 20.0,
                     color: color.foreground.0,
                 },
@@ -55,7 +56,8 @@ pub fn spawn_text2d(
             size: box_size,
         },
         // ensure the text is drawn on top of the box
-        transform: Transform::from_translation(Vec3::new(1.1, -10.0, 5.0)),
+        // transform: Transform::from_translation(Vec3::new(1.1, -10.0, 5.0)),
+        transform: Transform::from_translation(Vec3::new(0., 0., 5.)),
         ..Default::default()
     }
 }
@@ -192,7 +194,7 @@ pub fn create_default_components<T: NodeTrait + ParentNode + Component>(
                     slot_type: os.slot_type.clone(),
                     signal_type: os.signal_type.clone(),
                     display: get_slot_name(true, &os.slot_type),
-                    name: get_slot_name(true, &os.slot_type), // TODO: get actual name
+                    name: NodeVarient::Custom(get_slot_name(true, &os.slot_type)), // TODO: get actual name
                     pos: os.pos.clone(),
                     active: slot_active(),
                     inert: slot_inert(),
@@ -208,7 +210,7 @@ pub fn create_default_components<T: NodeTrait + ParentNode + Component>(
                 slot_type: os.slot_type.clone(),
                 signal_type: os.signal_type.clone(),
                 display: get_slot_name(false, &os.slot_type),
-                name: get_slot_name(true, &os.slot_type), // TODO: get actual name
+                name: NodeVarient::Custom(get_slot_name(true, &os.slot_type)), // TODO: get actual name
                 pos: os.pos.clone(),
                 active: slot_active(),
                 inert: slot_inert(),
@@ -225,7 +227,6 @@ pub fn get_slot_name(is_output: bool, slot_type: &SlotType) -> String {
         SlotType::F32 => format!("{}F", if is_output { "O" } else { "I" }),
         SlotType::I32 => format!("{}I", if is_output { "O" } else { "I" }),
         SlotType::F32x2 => format!("{}G", if is_output { "O" } else { "I" }),
-        SlotType::I32x2 => format!("{}J", if is_output { "O" } else { "I" }),
         SlotType::Bang => format!("{}!", if is_output { "O" } else { "I" }),
         SlotType::None => format!("{}_", if is_output { "O" } else { "I" }),
     }

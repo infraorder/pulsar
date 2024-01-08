@@ -83,11 +83,12 @@ fn main() {
 
     use crate::{
         components::{
+            audio::AudioGraph,
             config::ConfigLoader,
             grid::system::setup_grid,
             lua::LuaLoader,
             nodes::{
-                blueprints::{init_temp_blueprints, initialize_node},
+                blueprints::{init_temp_blueprints, initialize_gen_node},
                 generic::{
                     system::{spawn_audio_pulses, tick_pulses},
                     types::AudioNodeChangeEvent,
@@ -105,6 +106,8 @@ fn main() {
     let config = toml::from_str::<ConfigAsset>(&s.unwrap()).unwrap();
 
     println!("CONFIG: {:#?}", config);
+
+    let audio_graph = AudioGraph::default();
 
     App::new()
         .add_plugins((
@@ -137,6 +140,7 @@ fn main() {
         .add_event::<AudioNodeChangeEvent>()
         .insert_resource(Msaa::Sample8)
         .insert_resource(config)
+        .insert_resource(audio_graph)
         .init_asset::<LuaAsset>()
         .init_asset_loader::<LuaLoader>()
         .init_asset::<ConfigAsset>()
@@ -148,7 +152,7 @@ fn main() {
         // .add_systems(Startup, setup_grid) // TODO: Re-Add
         .add_systems(Startup, setup_grid)
         .add_systems(Startup, init_temp_blueprints)
-        .add_systems(Update, initialize_node)
+        .add_systems(Update, initialize_gen_node)
         // temporary system
         .add_systems(Update, change_frequency)
         .add_systems(Update, keyboard_input_temp)
@@ -164,7 +168,7 @@ fn main() {
         //events
         .add_systems(PostUpdate, spawn_audio_pulses)
         .insert_resource(Time::<Fixed>::from_seconds(
-            (60.0 /* one minute */ / 120.0/* BPM */) / 8.0, /* 8 times */
+            (60.0 /* one minute */ / 120.0/* BPM */) / 8.0, /* 8 times per beat */
         ))
         .run()
 }

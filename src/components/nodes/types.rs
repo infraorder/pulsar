@@ -1,9 +1,17 @@
-use crate::util::{MANTLE, MAROON};
+use std::sync::Mutex;
+
+use crate::{
+    dsp::TChain,
+    util::{MANTLE, MAROON},
+};
 use bevy::{
     ecs::{component::Component, entity::Entity},
     math::Vec2,
     render::color::Color,
 };
+use rlua::Lua;
+
+use super::lua::LuaHandle;
 
 // Color
 /// Struct for passing colors to lua.
@@ -36,7 +44,7 @@ impl Default for ColorPair {
 }
 
 pub trait NodeTrait {
-    fn name(&self) -> String;
+    fn name(&self) -> NodeVarient;
     fn display(&self) -> String;
     fn pos(&self) -> Position;
     fn get_active(&self) -> ColorPair;
@@ -48,9 +56,12 @@ pub trait NodeTrait {
 pub trait ParentNode {
     fn get_data(&self) -> &NodeData;
     fn get_node(&self) -> &Node;
-
     fn get_data_mut(&mut self) -> &mut NodeData;
     fn get_node_mut(&mut self) -> &mut Node;
+    fn get_lua(&self) -> Option<&Mutex<Lua>>;
+    fn get_lua_mut(&mut self) -> Option<&mut Mutex<Lua>>;
+    fn get_lua_handles(&self) -> Option<&Vec<LuaHandle>>;
+    fn get_lua_handles_mut(&mut self) -> Option<&mut Vec<LuaHandle>>;
 }
 
 // components
@@ -81,7 +92,7 @@ pub struct OutputSlot {
 }
 
 impl NodeTrait for OutputSlot {
-    fn name(&self) -> String {
+    fn name(&self) -> NodeVarient {
         self.slot.name.clone()
     }
 
@@ -113,7 +124,7 @@ pub struct InputSlot {
 }
 
 impl NodeTrait for InputSlot {
-    fn name(&self) -> String {
+    fn name(&self) -> NodeVarient {
         self.slot.name.clone()
     }
 
@@ -180,7 +191,7 @@ pub struct SlotNode {
     pub signal_type: NodeType,
     pub pos: Position,
     pub display: String,
-    pub name: String,
+    pub name: NodeVarient,
     pub active: ColorPair,
     pub inert: ColorPair,
     pub inactive: ColorPair,
@@ -190,7 +201,7 @@ pub struct SlotNode {
 /// Node - base node. All nodes should have this struct.
 #[derive(Clone, Default, Debug)]
 pub struct Node {
-    pub name: String,
+    pub name: NodeVarient,
     pub display: String,
     pub pos: Position,
 
@@ -210,7 +221,7 @@ pub struct NodeData {
     pub slot_data: Vec<SlotData>,
     pub output_slot_data: Vec<SlotData>,
 
-    pub updated: Vec<Position>,
+    pub updated: Vec<usize>,
     pub state: NodeStatus,
 
     pub commands: Vec<NodeCommand>,
@@ -256,7 +267,6 @@ pub enum SlotType {
     I32,
 
     F32x2,
-    I32x2,
 
     Bang,
     #[default]
@@ -280,4 +290,26 @@ pub enum SlotData {
 pub enum ChannelType {
     Instrument,
     Transmitter,
+}
+
+#[derive(Clone, Debug, Default)]
+pub enum NodeVarient {
+    LuaPulse,
+    LuaRead,
+    AudioProd,
+    Custom(String),
+    #[default]
+    None,
+}
+
+impl NodeVarient {
+    pub fn to_string(&self) -> String {
+        match self {
+            NodeVarient::LuaPulse => "lua_pulse".to_string(),
+            NodeVarient::LuaRead => "lua_read".to_string(),
+            NodeVarient::AudioProd => "audio_prod".to_string(),
+            NodeVarient::Custom(s) => s.to_string(),
+            NodeVarient::None => "none".to_string(),
+        }
+    }
 }

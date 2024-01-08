@@ -1,18 +1,26 @@
-use bevy::ecs::component::Component;
+use std::sync::Mutex;
 
-use super::types::{ColorPair, Node, NodeData, NodeTrait, Position, ParentNode};
+use bevy::ecs::component::Component;
+use rlua::Lua;
+
+use super::{
+    lua::LuaHandle,
+    types::{ColorPair, Node, NodeData, NodeTrait, ParentNode, Position, NodeVarient},
+};
 
 #[derive(Component)]
 pub struct IsNativeNode;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct NativeNode {
     pub node: Node,
     pub data: NodeData,
+    pub handles: Option<Vec<LuaHandle>>,
+    pub lua: Option<Mutex<Lua>>,
 }
 
 impl NodeTrait for NativeNode {
-    fn name(&self) -> String {
+    fn name(&self) -> NodeVarient {
         self.node.name.clone()
     }
 
@@ -52,5 +60,21 @@ impl ParentNode for NativeNode {
 
     fn get_data_mut(&mut self) -> &mut NodeData {
         &mut self.data
+    }
+
+    fn get_lua(&self) -> Option<&Mutex<Lua>> {
+        self.lua.as_ref()
+    }
+
+    fn get_lua_mut(&mut self) -> Option<&mut Mutex<Lua>> {
+        self.lua.as_mut()
+    }
+
+    fn get_lua_handles(&self) -> Option<&Vec<LuaHandle>> {
+        self.handles.as_ref()
+    }
+
+    fn get_lua_handles_mut(&mut self) -> Option<&mut Vec<LuaHandle>> {
+        self.handles.as_mut()
     }
 }

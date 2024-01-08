@@ -1,13 +1,13 @@
 use crate::components::nodes::{
     native::NativeNode,
-    types::{Node, NodeData, NodeStatus, NodeType, SlotData, Position},
+    types::{Node, NodeData, NodeStatus, NodeType, SlotData, Position, NodeVarient},
 };
 
 use super::GenericNode;
 
 pub fn construct_pulse_node(
     pos: Position,
-    name: String,
+    name: NodeVarient,
     display: String,
     ntype: Vec<NodeType>,
     data: SlotData,
@@ -26,5 +26,7 @@ pub fn construct_pulse_node(
             pos,
             ..Default::default()
         },
+        lua: None,
+        handles: None,
     })
 }

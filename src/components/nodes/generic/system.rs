@@ -1,11 +1,11 @@
-use std::ops::{Add, Mul};
+use std::ops::Mul;
 
 use bevy::{
     asset::AssetServer,
     ecs::{
         entity::Entity,
         event::EventReader,
-        query::With,
+        query::{With, Without},
         system::{Commands, Query, Res},
     },
     hierarchy::{DespawnRecursiveExt, Parent},
@@ -19,7 +19,7 @@ use crate::components::{
     grid::Grid,
     nodes::{
         generic::util::construct_pulse_node,
-        types::{InputSlot, NodeType, ParentNode, Pulse, SlotData},
+        types::{InputSlot, NodeType, NodeVarient, ParentNode, Pulse, SlotData},
         util::spawn_node_with_text,
     },
 };
@@ -53,7 +53,7 @@ pub fn spawn_audio_pulses(
                             .pos
                             .offset(node.get_node().output_slots[i].pos.clone())
                             .offset(direction.clone());
-                        let name = "AudioProd".to_string();
+                        let name = NodeVarient::AudioProd;
                         let display = "D".to_string();
                         let ntype = vec![NodeType::Prod];
                         let data = SlotData::Bang(true);
@@ -80,9 +80,9 @@ pub fn tick_pulses(
     mut commands: Commands,
     mut g_query: Query<&mut Grid>,
     config: Res<ConfigAsset>,
-    mut query: Query<(Entity, &mut GenericNode, &Pulse, &mut Transform)>,
-    mut node_query: Query<&mut GenericNode>,
-    mut input_node_query: Query<(&Parent, &mut InputSlot)>,
+    mut query: Query<(Entity, &mut GenericNode, &Pulse, &mut Transform), With<Pulse>>,
+    mut node_query: Query<&mut GenericNode, Without<Pulse>>,
+    input_node_query: Query<(&Parent, &mut InputSlot)>,
 ) {
     let box_size = Vec2::new(config.grid_offset_x, config.grid_offset_y);
 
@@ -95,19 +95,14 @@ pub fn tick_pulses(
             // TODO: CHECK if there is a node in the new position
             match grid.get_entity(new_pos.to_tuple()) {
                 Some(e) => {
-                    if let Ok((parent_entity, mut input_slot)) = input_node_query.get_mut(e) {
+                    if let Ok((parent_entity, input_slot)) = input_node_query.get(e) {
                         let idx = input_slot.idx;
 
                         if let Ok(mut parent_node) = node_query.get_mut(parent_entity.get()) {
-                            match parent_node.as_ref() {
-                                GenericNode::Lua(_) => {
-                                    let lnode = parent_node.get_lua_node_mut().unwrap();
-                                    let lnode_data = lnode.get_data_mut();
+                            let lnode_data = parent_node.get_data_mut();
 
-                                    lnode_data.slot_data[idx] = (&node_data.data).clone();
-                                }
-                                _ => {}
-                            }
+                            lnode_data.slot_data[idx] = (&node_data.data).clone();
+                            lnode_data.updated.push(idx);
                         }
 
                         grid.remove_from_grid(node.pos.to_tuple());
@@ -121,5 +116,40 @@ pub fn tick_pulses(
                 }
             }
         }
+    }
+}
+
+pub fn tick_logic(
+    mut commands: Commands,
+    mut g_query: Query<&mut Grid>,
+    config: Res<ConfigAsset>,
+    mut query: Query<(Entity, &mut GenericNode, &mut Transform)>,
+    input_node_query: Query<(&Parent, &mut InputSlot)>,
+) {
+    let box_size = Vec2::new(config.grid_offset_x, config.grid_offset_y);
+
+    if let Some(mut grid) = g_query.iter_mut().next() {
+        query.par_iter_mut().for_each(|(e, mut gn, tform)| {
+            // Update node-data where necessary (for now just lua nodes)
+            match gn.as_ref() {
+                GenericNode::Lua(_) => {
+                    let lua_node = gn.get_lua_node_mut().unwrap();
+
+                    let data = lua_node.data.clone();
+                    let lua = lua_node.lua.lock().unwrap();
+
+                    lua.context(|ctx| {
+                        ctx.globals().set("data", data).unwrap(); // TODO: handle error
+                    });
+                }
+                GenericNode::Native(_) => {
+                    let gen_node = gn.get_native_node_mut().unwrap();
+
+                    match gen_node.node.name {}
+
+                    let data = gen_node.data.clone();
+                }
+            }
+        });
     }
 }

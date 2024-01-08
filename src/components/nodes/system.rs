@@ -18,9 +18,10 @@ use crate::{
 };
 
 use super::{
-    generic::{GenericNode, types::AudioNodeChangeEvent},
+    generic::{types::AudioNodeChangeEvent, GenericNode},
     lua::{init_lua, LuaNode},
-    types::{AudioNode, NodeBP, NodeTrait, NodeType, NotSetup, Position},
+    native::NativeNode,
+    types::{AudioNode, NodeBP, NodeTrait, NodeType, NotSetup, ParentNode, Position},
     util::{create_default_components, spawn_node_with_children},
 };
 
@@ -76,10 +77,10 @@ pub fn insert_node(
     pos: Position,
     mut ev_audio_change: EventWriter<AudioNodeChangeEvent>,
 ) {
-    if let Some((_, gen_node)) = query.into_iter().find(|(_, node)| node.name() == name) {
+    if let Some((_, gen_node)) = query.into_iter().find(|(_, node)| node.name().to_string() == name) {
         match gen_node {
             GenericNode::Lua(node) => {
-                let mut lnode = construct_node_from_node_bp(node, pos);
+                let mut lnode = construct_lua_node_from_node_bp(node, pos);
                 init_lua(&lua_assets, &mut lnode);
 
                 let mut node_list = vec![];
@@ -120,16 +121,54 @@ pub fn insert_node(
 
                 info!("spawned node: {:?}", entity);
             }
-
             GenericNode::Native(node) => {
-                panic!("not implemented")
+                let mut lnode = construct_native_node_from_node_bp(node, pos);
+                init_lua(&lua_assets, &mut lnode);
+
+                let mut node_list = vec![];
+
+                let (t_node, mut input_slots, mut output_slots) =
+                    create_default_components(GenericNode::Native(lnode));
+
+                match grid.check_collision(&t_node, &input_slots, &output_slots) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        info!("Collision detected - {}", e);
+                        // TODO: display this
+                        return;
+                    }
+                }
+
+                let entity = spawn_node_with_children(
+                    grid,
+                    &config,
+                    commands,
+                    &asset_server,
+                    t_node,
+                    &mut input_slots,
+                    &mut output_slots,
+                );
+
+                if contains_audio(node) {
+                    info!("contains audio");
+                    node_list.push(AudioNode { connection: None });
+                    ev_audio_change.send(AudioNodeChangeEvent(entity));
+                }
+
+                let mut ce = commands.entity(entity);
+
+                node_list.iter().for_each(|item| {
+                    ce.insert(item.clone());
+                });
+
+                info!("spawned node: {:?}", entity);
             }
         }
     }
 }
 
-fn contains_audio(node: &LuaNode) -> bool {
-    node.node
+fn contains_audio<T: ParentNode>(node: &T) -> bool {
+    node.get_node()
         .output_slots
         .iter()
         .find(|x| match x.signal_type {
@@ -139,7 +178,7 @@ fn contains_audio(node: &LuaNode) -> bool {
         .is_some()
 }
 
-fn construct_node_from_node_bp(node: &LuaNode, pos: Position) -> LuaNode {
+fn construct_lua_node_from_node_bp(node: &LuaNode, pos: Position) -> LuaNode {
     let mut sub_node = node.node.clone();
     sub_node.pos = pos;
 
@@ -148,6 +187,20 @@ fn construct_node_from_node_bp(node: &LuaNode, pos: Position) -> LuaNode {
         data: node.data.clone(),
         handles: node.handles.clone(),
         lua: Mutex::new(init_instance()),
+    };
+
+    lnode
+}
+
+fn construct_native_node_from_node_bp(node: &NativeNode, pos: Position) -> NativeNode {
+    let mut sub_node = node.node.clone();
+    sub_node.pos = pos;
+
+    let lnode = NativeNode {
+        node: sub_node,
+        data: node.data.clone(),
+        handles: node.handles.clone(),
+        lua: Some(Mutex::new(init_instance())),
     };
 
     lnode

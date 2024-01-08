@@ -10,11 +10,8 @@ NODE_TYPES = {
 SLOT_TYPE = {
     F32 = "F32",
     I32 = "I32",
-
     F32x2 = "F32x2",
-
     Bang = "Bang",
-
     None = "None",
 }
 
@@ -26,6 +23,9 @@ NODE_STATE = {
 }
 
 node = {
+    pos = { x = 0, y = 0 },
+    display = "X",
+    name = "X",
     inert = {
         foreground = TEXT,
         background = SURFACE2,
@@ -38,9 +38,6 @@ node = {
         foreground = BASE,
         background = MANTLE,
     },
-    pos = { x = 0, y = 0 },
-    display = "X",
-    name = "X",
     ntype = { NODE_TYPES.None },
     slots = {},
     output_slots = {},
@@ -51,7 +48,7 @@ data = {
     slot_data = {},
     output_slot_data = {},
     state = NODE_STATE.None,
-    data = Nil
+    data = nil,
 }
 
 RESET = function()

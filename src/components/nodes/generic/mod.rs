@@ -2,12 +2,15 @@ pub mod system;
 pub mod types;
 pub mod util;
 
+use std::sync::Mutex;
+
 use bevy::ecs::component::Component;
+use rlua::Lua;
 
 use super::{
-    lua::LuaNode,
+    lua::{LuaHandle, LuaNode},
     native::NativeNode,
-    types::{ColorPair, Node, NodeData, NodeTrait, ParentNode, Position},
+    types::{ColorPair, Node, NodeData, NodeTrait, NodeVarient, ParentNode, Position},
 };
 
 #[derive(Component, Debug)]
@@ -17,20 +20,6 @@ pub enum GenericNode {
 }
 
 impl GenericNode {
-    pub fn get_lua_node_mut(&mut self) -> Option<&mut LuaNode> {
-        match self {
-            GenericNode::Lua(node) => Some(node),
-            _ => None,
-        }
-    }
-
-    pub fn get_native_node_mut(&mut self) -> Option<&mut NativeNode> {
-        match self {
-            GenericNode::Native(node) => Some(node),
-            _ => None,
-        }
-    }
-
     pub fn get_lua_node(&self) -> Option<&LuaNode> {
         match self {
             GenericNode::Lua(node) => Some(node),
@@ -44,10 +33,24 @@ impl GenericNode {
             _ => None,
         }
     }
+
+    pub fn get_lua_node_mut(&mut self) -> Option<&mut LuaNode> {
+        match self {
+            GenericNode::Lua(node) => Some(node),
+            _ => None,
+        }
+    }
+
+    pub fn get_native_node_mut(&mut self) -> Option<&mut NativeNode> {
+        match self {
+            GenericNode::Native(node) => Some(node),
+            _ => None,
+        }
+    }
 }
 
 impl NodeTrait for GenericNode {
-    fn name(&self) -> String {
+    fn name(&self) -> NodeVarient {
         match self {
             GenericNode::Lua(node) => node.name(),
             GenericNode::Native(node) => node.name(),
@@ -114,6 +117,34 @@ impl ParentNode for GenericNode {
         match self {
             GenericNode::Lua(node) => node.get_data_mut(),
             GenericNode::Native(node) => node.get_data_mut(),
+        }
+    }
+
+    fn get_lua(&self) -> Option<&Mutex<Lua>> {
+        match self {
+            GenericNode::Lua(node) => node.get_lua(),
+            GenericNode::Native(node) => node.get_lua(),
+        }
+    }
+
+    fn get_lua_mut(&mut self) -> Option<&mut Mutex<Lua>> {
+        match self {
+            GenericNode::Lua(node) => node.get_lua_mut(),
+            GenericNode::Native(node) => node.get_lua_mut(),
+        }
+    }
+
+    fn get_lua_handles(&self) -> Option<&Vec<LuaHandle>> {
+        match self {
+            GenericNode::Lua(node) => node.get_lua_handles(),
+            GenericNode::Native(node) => node.get_lua_handles(),
+        }
+    }
+
+    fn get_lua_handles_mut(&mut self) -> Option<&mut Vec<LuaHandle>> {
+        match self {
+            GenericNode::Lua(node) => node.get_lua_handles_mut(),
+            GenericNode::Native(node) => node.get_lua_handles_mut(),
         }
     }
 }

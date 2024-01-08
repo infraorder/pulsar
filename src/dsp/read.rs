@@ -21,6 +21,7 @@ use super::{
 
 pub type ChanOut = Vec<Arc<AtomicF32>>;
 
+#[derive(Clone)]
 pub struct Read {}
 
 #[derive(Clone)]

@@ -10,43 +10,42 @@ use rlua::Lua;
 
 use crate::components::lua::LuaAsset;
 
-use super::types::{ColorPair, Node, NodeData, NodeTrait, ParentNode, Position};
+use super::types::{ColorPair, Node, NodeData, NodeTrait, ParentNode, Position, NodeVarient};
 
 use crate::lua::load_fn;
 
-pub fn init_lua(lua_assets: &Res<Assets<LuaAsset>>, node: &mut LuaNode) {
-    let lua = node.lua.lock().unwrap();
-    node.handles.iter().for_each(|handle| {
-        if let LuaType::Node = handle.ltype {
-            let lua_asset = lua_assets.get(handle.handle.clone()); // TODO: Handle unwrap
+pub fn init_lua<T: ParentNode>(lua_assets: &Res<Assets<LuaAsset>>, node: &mut T) {
+    if let (Some(handles), Some(lua)) = (node.get_lua_handles(), node.get_lua()) {
+        let lua = lua.lock().unwrap();
 
-            match lua_asset {
-                Some(lua_asset) => {
-                    load_fn(&lua, &node.node.name, &lua_asset.script);
+        handles.iter().for_each(|handle| {
+            if let LuaType::Node = handle.ltype {
+                let lua_asset = lua_assets.get(handle.handle.clone()); // TODO: Handle unwrap
+
+                match lua_asset {
+                    Some(lua_asset) => {
+                        load_fn(&lua, &node.get_node().name.to_string(), &lua_asset.script);
+                    }
+                    None => panic!("this should never happen"),
                 }
-                None => panic!("this should never happen"),
             }
-        }
-    });
-    let n = node.node.clone();
-    let nd = node.data.clone();
-
-    node.node = n;
-    node.data = nd;
+        });
+        drop(lua);
+    }
 }
 
 // Lua
 /// LuaNode - lua controlled node.
 #[derive(Debug)]
 pub struct LuaNode {
-    pub handles: Vec<LuaHandle>,
     pub node: Node,
     pub data: NodeData,
+    pub handles: Vec<LuaHandle>,
     pub lua: Mutex<Lua>,
 }
 
 impl NodeTrait for LuaNode {
-    fn name(&self) -> String {
+    fn name(&self) -> NodeVarient {
         self.node.name.clone()
     }
 
@@ -86,6 +85,22 @@ impl ParentNode for LuaNode {
 
     fn get_data_mut(&mut self) -> &mut NodeData {
         &mut self.data
+    }
+
+    fn get_lua(&self) -> Option<&Mutex<Lua>> {
+        Some(&self.lua)
+    }
+
+    fn get_lua_mut(&mut self) -> Option<&mut Mutex<Lua>> {
+        Some(&mut self.lua)
+    }
+
+    fn get_lua_handles(&self) -> Option<&Vec<LuaHandle>> {
+        Some(&self.handles)
+    }
+
+    fn get_lua_handles_mut(&mut self) -> Option<&mut Vec<LuaHandle>> {
+        Some(&mut self.handles)
     }
 }
 
