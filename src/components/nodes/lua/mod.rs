@@ -10,7 +10,7 @@ use rlua::Lua;
 
 use crate::components::lua::LuaAsset;
 
-use super::types::{ColorPair, Node, NodeData, NodeTrait, ParentNode, Position, NodeVarient};
+use super::types::{ColorPair, Node, NodeData, NodeTrait, NodeVarient, ParentNode, Position};
 
 use crate::lua::load_fn;
 
@@ -32,6 +32,21 @@ pub fn init_lua<T: ParentNode>(lua_assets: &Res<Assets<LuaAsset>>, node: &mut T)
         });
         drop(lua);
     }
+}
+
+pub fn get_lua_wave_handles<T: ParentNode>(node: &T) -> Vec<Handle<LuaAsset>> {
+    if let Some(handles) = node.get_lua_handles() {
+        return handles
+            .iter()
+            .filter(|handle| match handle.ltype {
+                LuaType::Wave => true,
+                LuaType::Node => false,
+            })
+            .map(|handle| handle.handle.clone())
+            .collect();
+    }
+
+    panic!("Should have handles");
 }
 
 // Lua

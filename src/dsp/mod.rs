@@ -35,17 +35,31 @@ pub struct Chain {
 }
 
 // TODO: switch to this
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub enum ChainType {
     Dsp(Dsp),
-    Chain(TChain),
     ChainList(Vec<TChain>),
-    #[default]
     None,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct TChain {
-    t: Box<ChainType>,
-    e: Option<Entity>,
+    pub t: Box<ChainType>,
+    pub e: Option<Entity>,
+}
+
+impl TChain {
+    pub fn dsp(dsp: Dsp, e: Option<Entity>) -> Self {
+        Self {
+            t: Box::new(ChainType::Dsp(dsp)),
+            e,
+        }
+    }
+
+    pub fn vec(vec: Vec<TChain>, e: Option<Entity>) -> Self {
+        Self {
+            t: Box::new(ChainType::ChainList(vec)),
+            e,
+        }
+    }
 }

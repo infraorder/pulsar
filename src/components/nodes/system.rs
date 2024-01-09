@@ -6,14 +6,21 @@ use bevy::{
         entity::Entity,
         event::EventWriter,
         query::{With, Without},
-        system::{Commands, Query, Res},
+        system::{Commands, Query, Res, ResMut},
     },
     input::{keyboard::KeyCode, Input},
     log::info,
 };
 
 use crate::{
-    components::{config::ConfigAsset, grid::Grid, lua::LuaAsset},
+    components::{
+        audio::AudioGraph,
+        config::ConfigAsset,
+        grid::Grid,
+        lua::LuaAsset,
+        nodes::{lua::get_lua_wave_handles, types::NodeVarient},
+    },
+    dsp::{oscillators::Oscillator, ChainType, Dsp, TChain},
     lua::init_instance,
 };
 
@@ -21,12 +28,13 @@ use super::{
     generic::{types::AudioNodeChangeEvent, GenericNode},
     lua::{init_lua, LuaNode},
     native::NativeNode,
-    types::{AudioNode, NodeBP, NodeTrait, NodeType, NotSetup, ParentNode, Position},
+    types::{AudioNode, NodeBP, NodeTrait, NodeType, NotSetup, ParentNode, Position, Slot},
     util::{create_default_components, spawn_node_with_children},
 };
 
 pub fn keyboard_input_temp(
     config: Res<ConfigAsset>,
+    graph: ResMut<AudioGraph>,
     mut commands: Commands,
     mut g_query: Query<&mut Grid>,
     query: Query<(Entity, &mut GenericNode), (Without<NotSetup>, With<NodeBP>)>,
@@ -40,6 +48,7 @@ pub fn keyboard_input_temp(
         let mut grid = g_query.single_mut();
         insert_node(
             &mut grid,
+            graph,
             config,
             &mut commands,
             query,
@@ -54,6 +63,7 @@ pub fn keyboard_input_temp(
         let mut grid = g_query.single_mut();
         insert_node(
             &mut grid,
+            graph,
             config,
             &mut commands,
             query,
@@ -68,6 +78,7 @@ pub fn keyboard_input_temp(
 
 pub fn insert_node(
     grid: &mut Grid,
+    mut graph: ResMut<AudioGraph>,
     config: Res<ConfigAsset>,
     commands: &mut Commands,
     query: Query<(Entity, &mut GenericNode), (Without<NotSetup>, With<NodeBP>)>,
@@ -77,13 +88,14 @@ pub fn insert_node(
     pos: Position,
     mut ev_audio_change: EventWriter<AudioNodeChangeEvent>,
 ) {
-    if let Some((_, gen_node)) = query.into_iter().find(|(_, node)| node.name().to_string() == name) {
+    if let Some((_, gen_node)) = query
+        .into_iter()
+        .find(|(_, node)| node.name().to_string() == name)
+    {
         match gen_node {
             GenericNode::Lua(node) => {
                 let mut lnode = construct_lua_node_from_node_bp(node, pos);
                 init_lua(&lua_assets, &mut lnode);
-
-                let mut node_list = vec![];
 
                 let (t_node, mut input_slots, mut output_slots) =
                     create_default_components(GenericNode::Lua(lnode));
@@ -107,17 +119,7 @@ pub fn insert_node(
                     &mut output_slots,
                 );
 
-                if contains_audio(node) {
-                    info!("contains audio");
-                    node_list.push(AudioNode { connection: None });
-                    ev_audio_change.send(AudioNodeChangeEvent(entity));
-                }
-
-                let mut ce = commands.entity(entity);
-
-                node_list.iter().for_each(|item| {
-                    ce.insert(item.clone());
-                });
+                // audio not yet supported for fully lua based nodes
 
                 info!("spawned node: {:?}", entity);
             }
@@ -149,17 +151,48 @@ pub fn insert_node(
                     &mut output_slots,
                 );
 
-                if contains_audio(node) {
+                let slots = contains_audio(node);
+                slots.iter().for_each(|(i, slot)| {
                     info!("contains audio");
-                    node_list.push(AudioNode { connection: None });
-                    ev_audio_change.send(AudioNodeChangeEvent(entity));
-                }
 
-                let mut ce = commands.entity(entity);
+                    let osc = Oscillator {
+                        lua_handle: get_lua_wave_handles(node),
+                        lua_string: "".to_string(),
+                    };
 
-                node_list.iter().for_each(|item| {
-                    ce.insert(item.clone());
+                    let mut last_idx = 0;
+
+                    match node.name() {
+                        NodeVarient::LuaPulse => {
+                            info!("inserting pulse");
+
+                            let l = graph.get_chain_mut();
+                            l.push(TChain::vec(
+                                vec![TChain::dsp(Dsp::Input(osc), Some(entity))],
+                                Some(entity),
+                            ));
+                            last_idx = l.len() - 1;
+                        }
+                        _ => (),
+                    }
+
+                    node_list.push(AudioNode {
+                        connection: None,
+                        idx: Some(last_idx),
+                    });
+                    ev_audio_change.send(AudioNodeChangeEvent {
+                        entity,
+                        slot_idx: i.to_owned(),
+                    });
                 });
+
+                if slots.len() > 0 {
+                    let mut ce = commands.entity(entity);
+
+                    node_list.iter().for_each(|item| {
+                        ce.insert(item.clone());
+                    });
+                }
 
                 info!("spawned node: {:?}", entity);
             }
@@ -167,15 +200,16 @@ pub fn insert_node(
     }
 }
 
-fn contains_audio<T: ParentNode>(node: &T) -> bool {
+fn contains_audio<T: ParentNode>(node: &T) -> Vec<(usize, &Slot)> {
     node.get_node()
         .output_slots
         .iter()
-        .find(|x| match x.signal_type {
+        .enumerate()
+        .filter(|(i, x)| match x.signal_type {
             NodeType::SignalLink => true,
             _ => false,
         })
-        .is_some()
+        .collect()
 }
 
 fn construct_lua_node_from_node_bp(node: &LuaNode, pos: Position) -> LuaNode {

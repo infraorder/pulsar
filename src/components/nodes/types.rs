@@ -70,10 +70,11 @@ pub trait ParentNode {
 #[derive(Component, Clone)]
 pub struct NodeBP;
 
-#[derive(Component, Clone, Default, Copy)]
+#[derive(Component, Clone, Copy)]
 pub struct Pulse {
     pub slot_idx: usize,
     pub direction: Position,
+    pub original_entity: Entity,
 }
 
 /// This Component denotes that a node is not setup yet
@@ -84,6 +85,7 @@ pub struct NotSetup;
 #[derive(Component, Clone)]
 pub struct AudioNode {
     pub connection: Option<Entity>,
+    pub idx: Option<usize>,
 }
 
 #[derive(Debug, Clone, Component)]

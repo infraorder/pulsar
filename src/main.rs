@@ -96,7 +96,7 @@ fn main() {
                 system::keyboard_input_temp,
             },
         },
-        dsp::audio_graph::AudioPlugin,
+        dsp::{audio_graph::AudioPlugin, TChain},
         instancing::InstanceMaterial2dPlugin,
         post::feedback::FeedbackPlugin,
         systems::fps::{fps_counter_showhide, fps_text_update_system, setup_fps_counter},
@@ -107,7 +107,12 @@ fn main() {
 
     println!("CONFIG: {:#?}", config);
 
-    let audio_graph = AudioGraph::default();
+    let audio_graph = AudioGraph {
+        chain: TChain {
+            t: Box::new(dsp::ChainType::ChainList(vec![])),
+            e: None,
+        },
+    };
 
     App::new()
         .add_plugins((

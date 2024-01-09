@@ -14,7 +14,7 @@ line_offset_y_1 = -0.7
 xy_mult = 600.0
 xy_rad = 3.0
 
-grid_offset_x = 50.0
-grid_offset_y = 70.0
+grid_offset_x = 25.0
+grid_offset_y = 35.0
 
 grid_widget_scale = 1.5

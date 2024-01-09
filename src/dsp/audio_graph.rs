@@ -209,7 +209,11 @@ fn update_audio(
                         .iter()
                         .for_each(|send_control| match send_control {
                             Dsp::Input(audio) => {
-                                if (audio.lua_handle.id()) == asset_id.to_owned() {
+                                if audio
+                                    .lua_handle
+                                    .iter()
+                                    .any(|handle| handle.id() == asset_id.to_owned())
+                                {
                                     knyst_commands().free_node(audio_id.0.clone());
                                     commands.entity(entity).remove::<AudioId>();
                                     commands.entity(entity).remove::<AudioControl<Read>>();

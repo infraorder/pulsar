@@ -22,6 +22,7 @@ use rlua::{Function, Lua, Result};
 use crate::{
     components::lua::LuaAsset,
     lua::{init_instance, load_fn},
+    FREQUENCY_TEMP,
 };
 
 use super::{
@@ -33,10 +34,8 @@ const OUT: &str = "OUT_FN";
 
 #[derive(Clone)]
 pub struct Oscillator {
-    pub lua_handle: Handle<LuaAsset>,
-    pub lua_util_handle: Handle<LuaAsset>,
+    pub lua_handle: Vec<Handle<LuaAsset>>,
     pub lua_string: String,
-    pub frequency_hz: f32,
 }
 
 pub struct OscillatorStream {
@@ -142,37 +141,32 @@ impl Streamable for Oscillator {
         // _knyst: &mut KnystCommands,
         lua_assets: &Res<Assets<LuaAsset>>,
     ) -> Option<AudioSendControl> {
-        let custom_asset = lua_assets.get(self.lua_handle.clone());
-
-        if custom_asset.is_none() {
-            return None;
-        }
-
-        let custom_asset = custom_asset.unwrap();
-
-        info!("Custom asset loaded: {:?}", custom_asset.script);
-
-        self.lua_string = custom_asset.script.to_owned();
-
-        let utils = lua_assets.get(self.lua_util_handle.clone());
-
-        if utils.is_none() {
-            return None;
-        }
-
-        let hood = utils.unwrap();
-
-        info!("Custom asset loaded: {:?}", hood.script);
+        let mut error = false;
 
         let luas = [(); AUDIO_SIZE].map(|_| {
             let lua = init_instance();
-            load_fn(&lua, "lua_pulse", &hood.script);
-            load_fn(&lua, "lua_pulse", &custom_asset.script);
+
+            self.lua_handle.iter().for_each(|handle| {
+                let asset = lua_assets.get(handle.clone());
+
+                if asset.is_none() {
+                    error = true;
+                    return;
+                }
+
+                let asset = asset.unwrap();
+
+                load_fn(&lua, "lua_pulse", &asset.script);
+            });
 
             Box::new(lua)
         });
 
-        let frequency = Arc::new(AtomicF32::new(self.frequency_hz * TAU));
+        if error {
+            return None;
+        }
+
+        let frequency = Arc::new(AtomicF32::new(FREQUENCY_TEMP * TAU));
 
         let time = Arc::new(AtomicF32::new(0.0)); // will be received from bevy instance;
 
