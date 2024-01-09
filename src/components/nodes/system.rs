@@ -11,21 +11,25 @@ use bevy::{
     input::{keyboard::KeyCode, Input},
     log::info,
 };
+use knyst::{
+    controller::KnystCommands,
+    graph::{connection::InputBundle, GenOrGraph, Graph, GraphSettings},
+    inputs, knyst_commands,
+};
 
 use crate::{
     components::{
-        audio::AudioGraph,
         config::ConfigAsset,
         grid::Grid,
         lua::LuaAsset,
         nodes::{lua::get_lua_wave_handles, types::NodeVarient},
     },
-    dsp::{oscillators::Oscillator, ChainType, Dsp, TChain},
+    dsp::{oscillators::Oscillator, Dsp},
     lua::init_instance,
 };
 
 use super::{
-    generic::{types::AudioNodeChangeEvent, GenericNode},
+    generic::{types::AudioNodePulseEvent, GenericNode},
     lua::{init_lua, LuaNode},
     native::NativeNode,
     types::{AudioNode, NodeBP, NodeTrait, NodeType, NotSetup, ParentNode, Position, Slot},
@@ -34,21 +38,19 @@ use super::{
 
 pub fn keyboard_input_temp(
     config: Res<ConfigAsset>,
-    graph: ResMut<AudioGraph>,
     mut commands: Commands,
     mut g_query: Query<&mut Grid>,
     query: Query<(Entity, &mut GenericNode), (Without<NotSetup>, With<NodeBP>)>,
     asset_server: Res<AssetServer>,
     lua_assets: Res<Assets<LuaAsset>>,
     keys: Res<Input<KeyCode>>,
-    ev_audio_change: EventWriter<AudioNodeChangeEvent>,
+    ev_audio_change: EventWriter<AudioNodePulseEvent>,
 ) {
     if keys.just_pressed(KeyCode::Space) {
-        info!("pressed space");
+        info!("pressed SPACE");
         let mut grid = g_query.single_mut();
         insert_node(
             &mut grid,
-            graph,
             config,
             &mut commands,
             query,
@@ -59,11 +61,10 @@ pub fn keyboard_input_temp(
             ev_audio_change,
         );
     } else if keys.just_pressed(KeyCode::A) {
-        info!("pressed a");
+        info!("pressed A");
         let mut grid = g_query.single_mut();
         insert_node(
             &mut grid,
-            graph,
             config,
             &mut commands,
             query,
@@ -73,12 +74,25 @@ pub fn keyboard_input_temp(
             Position::new(0, -5),
             ev_audio_change,
         );
+    } else if keys.just_pressed(KeyCode::R) {
+        info!("pressed R");
+        let mut grid = g_query.single_mut();
+        insert_node(
+            &mut grid,
+            config,
+            &mut commands,
+            query,
+            asset_server,
+            lua_assets,
+            "audio_out".to_string(),
+            Position::new(0, -10),
+            ev_audio_change,
+        );
     }
 }
 
 pub fn insert_node(
     grid: &mut Grid,
-    mut graph: ResMut<AudioGraph>,
     config: Res<ConfigAsset>,
     commands: &mut Commands,
     query: Query<(Entity, &mut GenericNode), (Without<NotSetup>, With<NodeBP>)>,
@@ -86,7 +100,7 @@ pub fn insert_node(
     lua_assets: Res<Assets<LuaAsset>>,
     name: String,
     pos: Position,
-    mut ev_audio_change: EventWriter<AudioNodeChangeEvent>,
+    mut ev_audio_change: EventWriter<AudioNodePulseEvent>,
 ) {
     if let Some((_, gen_node)) = query
         .into_iter()
@@ -155,16 +169,24 @@ pub fn insert_node(
                 slots.iter().for_each(|(i, slot)| {
                     info!("contains audio");
 
-                    let osc = Oscillator {
-                        lua_handle: get_lua_wave_handles(node),
-                        lua_string: "".to_string(),
-                    };
-
                     let mut last_idx = 0;
 
                     match node.name() {
                         NodeVarient::LuaPulse => {
                             info!("inserting pulse");
+
+                            let osc = Oscillator {
+                                lua_handle: get_lua_wave_handles(node),
+                                lua_string: "".to_string(),
+                            };
+
+                            let k = knyst_commands().push(
+                                Graph::new(GraphSettings {
+                                    block_size: 64,
+                                    ..Default::default()
+                                }),
+                                inputs!(),
+                            );
 
                             let l = graph.get_chain_mut();
                             l.push(TChain::vec(
@@ -173,14 +195,23 @@ pub fn insert_node(
                             ));
                             last_idx = l.len() - 1;
                         }
+                        NodeVarient::AudioOut => {
+                            info!("inserting audio out");
+
+                            let l = graph.get_chain_mut();
+                            l.push(TChain::vec(
+                                vec![TChain::dsp(Dsp::Output, Some(entity))],
+                                Some(entity),
+                            ));
+                            last_idx = l.len() - 1;
+                        }
                         _ => (),
                     }
 
                     node_list.push(AudioNode {
-                        connection: None,
                         idx: Some(last_idx),
                     });
-                    ev_audio_change.send(AudioNodeChangeEvent {
+                    ev_audio_change.send(AudioNodePulseEvent {
                         entity,
                         slot_idx: i.to_owned(),
                     });

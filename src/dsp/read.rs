@@ -22,7 +22,7 @@ use super::{
 pub type ChanOut = Vec<Arc<AtomicF32>>;
 
 #[derive(Clone)]
-pub struct Read {}
+pub struct Read;
 
 #[derive(Clone)]
 pub struct StreamBuf {

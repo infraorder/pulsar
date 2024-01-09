@@ -1,9 +1,6 @@
 use std::sync::Mutex;
 
-use crate::{
-    dsp::TChain,
-    util::{MANTLE, MAROON},
-};
+use crate::util::{MANTLE, MAROON};
 use bevy::{
     ecs::{component::Component, entity::Entity},
     math::Vec2,
@@ -84,7 +81,6 @@ pub struct NotSetup;
 /// All entities with this node deal with audio processing.
 #[derive(Component, Clone)]
 pub struct AudioNode {
-    pub connection: Option<Entity>,
     pub idx: Option<usize>,
 }
 
@@ -293,12 +289,14 @@ pub enum SlotData {
 pub enum ChannelType {
     Instrument,
     Transmitter,
+    Terminator,
 }
 
 #[derive(Clone, Debug, Default)]
 pub enum NodeVarient {
     LuaPulse,
     LuaRead,
+    AudioOut,
     AudioProd,
     Custom(String),
     #[default]
@@ -310,6 +308,7 @@ impl NodeVarient {
         match self {
             NodeVarient::LuaPulse => "lua_pulse".to_string(),
             NodeVarient::LuaRead => "lua_read".to_string(),
+            NodeVarient::AudioOut => "audio_out".to_string(),
             NodeVarient::AudioProd => "audio_prod".to_string(),
             NodeVarient::Custom(s) => s.to_string(),
             NodeVarient::None => "none".to_string(),

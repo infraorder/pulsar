@@ -57,17 +57,6 @@ const UI_TARGET: u8 = 0;
 
 const FREQUENCY_TEMP: f32 = 144.0;
 
-#[derive(Bundle, Default)]
-pub struct InstancingBundle {
-    mesh: Mesh2dHandle,
-    spatial: SpatialBundle,
-    instance_material: InstanceMaterialData,
-    frustum_culling: NoFrustumCulling,
-}
-
-#[derive(Component, Default)]
-pub struct Oscil;
-
 #[cfg(debug_assertions)]
 fn main() {
     use std::fs;
@@ -83,7 +72,6 @@ fn main() {
 
     use crate::{
         components::{
-            audio::AudioGraph,
             config::ConfigLoader,
             grid::system::setup_grid,
             lua::LuaLoader,
@@ -91,12 +79,12 @@ fn main() {
                 blueprints::{init_temp_blueprints, initialize_gen_node},
                 generic::{
                     system::{spawn_audio_pulses, tick_pulses},
-                    types::AudioNodeChangeEvent,
+                    types::AudioNodePulseEvent,
                 },
                 system::keyboard_input_temp,
             },
         },
-        dsp::{audio_graph::AudioPlugin, TChain},
+        dsp::audio_graph::AudioPlugin,
         instancing::InstanceMaterial2dPlugin,
         post::feedback::FeedbackPlugin,
         systems::fps::{fps_counter_showhide, fps_text_update_system, setup_fps_counter},
@@ -106,13 +94,6 @@ fn main() {
     let config = toml::from_str::<ConfigAsset>(&s.unwrap()).unwrap();
 
     println!("CONFIG: {:#?}", config);
-
-    let audio_graph = AudioGraph {
-        chain: TChain {
-            t: Box::new(dsp::ChainType::ChainList(vec![])),
-            e: None,
-        },
-    };
 
     App::new()
         .add_plugins((
@@ -142,10 +123,9 @@ fn main() {
             InstanceMaterial2dPlugin,
             AudioPlugin,
         ))
-        .add_event::<AudioNodeChangeEvent>()
+        .add_event::<AudioNodePulseEvent>()
         .insert_resource(Msaa::Sample8)
         .insert_resource(config)
-        .insert_resource(audio_graph)
         .init_asset::<LuaAsset>()
         .init_asset_loader::<LuaLoader>()
         .init_asset::<ConfigAsset>()
@@ -177,6 +157,17 @@ fn main() {
         ))
         .run()
 }
+
+#[derive(Bundle, Default)]
+pub struct InstancingBundle {
+    mesh: Mesh2dHandle,
+    spatial: SpatialBundle,
+    instance_material: InstanceMaterialData,
+    frustum_culling: NoFrustumCulling,
+}
+
+#[derive(Component, Default)]
+pub struct Oscil;
 
 fn setup(
     mut commands: Commands,

@@ -1,37 +1,41 @@
-use std::ops::{Mul, Neg};
+use std::{ops::Mul, process::Output};
 
+use anyhow::Chain;
 use bevy::{
     asset::AssetServer,
+    audio,
     ecs::{
         entity::Entity,
         event::{EventReader, EventWriter},
         query::{With, Without},
         system::{Commands, Query, Res, ResMut},
     },
-    hierarchy::{BuildChildren, DespawnRecursiveExt, Parent},
+    hierarchy::{DespawnRecursiveExt, Parent},
     log::info,
     math::Vec2,
     transform::components::Transform,
 };
+use knyst::knyst_commands;
 
-use crate::components::{
-    audio::AudioGraph,
-    config::ConfigAsset,
-    grid::Grid,
-    nodes::{
-        generic::util::{calculate_grid_pos, construct_pulse_node},
-        types::{
-            InputSlot, NodeTrait, NodeType, NodeVarient, ParentNode, Position, Pulse, SlotData,
-            SlotType,
+use crate::{
+    components::{
+        audio::AudioGraph,
+        config::ConfigAsset,
+        grid::Grid,
+        nodes::{
+            generic::util::{calculate_grid_pos, construct_pulse_node},
+            lua::get_lua_wave_handles,
+            types::{AudioNode, InputSlot, NodeType, NodeVarient, ParentNode, Pulse, SlotData},
+            util::spawn_node_with_text,
         },
-        util::{spawn_child_node_with_text, spawn_node_with_children, spawn_node_with_text},
     },
+    dsp::{oscillators::Oscillator, read::Read, ChainType, Dsp, TChain},
 };
 
-use super::{types::AudioNodeChangeEvent, GenericNode};
+use super::{types::AudioNodePulseEvent, GenericNode};
 
 pub fn spawn_audio_pulses(
-    mut ev_audio_node_change: EventReader<AudioNodeChangeEvent>,
+    mut ev_audio_pulse_event: EventReader<AudioNodePulseEvent>,
     mut commands: Commands,
     config: Res<ConfigAsset>,
     mut g_query: Query<&mut Grid>,
@@ -39,7 +43,7 @@ pub fn spawn_audio_pulses(
     query: Query<(Entity, &GenericNode)>,
 ) {
     if let Ok(mut grid) = g_query.get_single_mut() {
-        for ev in ev_audio_node_change.read() {
+        for ev in ev_audio_pulse_event.read() {
             info!("audio node change event {:?}", ev.entity);
 
             commands.get_entity(ev.entity).unwrap();
@@ -79,19 +83,24 @@ pub fn spawn_audio_pulses(
     }
 }
 
+// main scheduled system for pulses.
 pub fn tick_pulses(
     mut commands: Commands,
     mut g_query: Query<&mut Grid>,
     config: Res<ConfigAsset>,
-    graph: ResMut<AudioGraph>,
+    mut graph: ResMut<AudioGraph>,
     mut query: Query<(Entity, &mut GenericNode, &Pulse, &mut Transform), With<Pulse>>,
-    mut node_query: Query<&mut GenericNode, Without<Pulse>>,
+    mut node_query: Query<(&mut GenericNode), Without<Pulse>>,
+    mut audio_node_query: Query<&AudioNode>,
     input_node_query: Query<(&Parent, &mut InputSlot)>,
-    mut ev_audio_change: EventWriter<AudioNodeChangeEvent>,
+    mut ev_audio_pulse: EventWriter<AudioNodePulseEvent>,
 ) {
+    // box size config.
     let box_size = Vec2::new(config.grid_offset_x, config.grid_offset_y);
 
+    // get the grid
     if let Some(mut grid) = g_query.iter_mut().next() {
+        // iterate over all pulses
         for (entity, mut gnode, pulse, mut tform) in query.iter_mut() {
             let node_data = gnode.get_data().clone();
             let node = gnode.get_node_mut();
@@ -99,59 +108,113 @@ pub fn tick_pulses(
             let current_pos = node.pos;
             let new_pos = current_pos.offset(&pulse.direction);
 
-            info!("CURRENT POS: {:?}", current_pos);
-            info!("NEW POS: {:?}", new_pos);
+            info!("-----------------------------------");
+            info!("running pulse move on pulse entity: {:?}", entity);
+            info!("pulse move - current position: {:?}", current_pos);
+            info!("pulse move - new position: {:?}", new_pos);
 
+            // check if the pulse is out of bounds.
             if new_pos.x > grid.dims.0
                 || new_pos.x < -grid.dims.0
                 || new_pos.y > grid.dims.1
                 || new_pos.y < -grid.dims.1
             {
-                info!("despawning pulse node");
+                info!("despawning pulse node from grid and resending audio pulse event");
+
                 grid.remove_from_grid(current_pos.to_tuple());
                 commands.entity(entity).despawn_recursive();
-                ev_audio_change.send(AudioNodeChangeEvent {
+                ev_audio_pulse.send(AudioNodePulseEvent {
                     entity: pulse.original_entity,
                     slot_idx: pulse.slot_idx,
                 });
                 continue;
             }
 
+            // check if the pulses new position is colliding with another node.
             match grid.get_entity(new_pos.to_tuple()) {
                 Some(e) => {
-                    info!("found entity: {:?}", e);
+                    info!("found entity in grid: {:?}", e);
 
+                    // check if the node is an input node. - ignore the rest but despawn the pulse.
                     if let Ok((parent_entity, input_slot)) = input_node_query.get(e) {
                         let idx = input_slot.idx;
 
-                        if let Ok(mut parent_node) = node_query.get_mut(parent_entity.get()) {
-                            // match (&parent_node.get_node().slots[idx].signal_type, &node.name) {
-                            //     (NodeType::SignalConst, NodeVarient::AudioProd) => parent.get(),
-                            //     _ => (),
-                            // }
-
-                            let lnode_data = parent_node.get_data_mut();
-
-                            lnode_data.slot_data[idx] = (&node_data.data).clone();
-                            lnode_data.updated.push(idx);
+                        // get root node of input.
+                        if let Ok(gnode) = node_query.get_mut(parent_entity.get()) {
+                            // check if the node is a signal const node, and if the signal type is audio.
+                            match (&gnode.get_node().slots[idx].signal_type, &node.name) {
+                                (NodeType::SignalConst, NodeVarient::AudioProd) => {
+                                    connect_audio(
+                                        &audio_node_query,
+                                        pulse,
+                                        &mut graph,
+                                        gnode,
+                                        entity,
+                                    );
+                                }
+                                _ => (),
+                            }
                         }
                     } else {
-                        ev_audio_change.send(AudioNodeChangeEvent {
+                        info!("sending audio pulse event.");
+                        ev_audio_pulse.send(AudioNodePulseEvent {
                             entity: pulse.original_entity,
                             slot_idx: pulse.slot_idx,
                         })
                     }
 
+                    // remove pulse from grid and despawn.
                     grid.remove_from_grid(current_pos.to_tuple());
                     commands.entity(entity).despawn_recursive();
                 }
                 None => {
+                    // move pulse to new position.
                     grid.move_entity(entity, current_pos.to_tuple(), new_pos.to_tuple());
                     tform.translation = new_pos.to_vec2().extend(0.).mul(box_size.extend(0.0));
                     node.pos = new_pos;
                 }
             }
         }
+    }
+}
+
+// this function is used for adding to the audio graph.
+// does not deal with any data, just linking to the ast.
+// TODO: need to draw some kind of line showing the connection
+fn connect_audio(
+    audio_node_query: &Query<'_, '_, &AudioNode>,
+    pulse: &Pulse,
+    graph: &mut ResMut<'_, AudioGraph>,
+    gnode: bevy::prelude::Mut<'_, GenericNode>,
+    entity: Entity,
+) {
+    // get audio node.
+    let audio_node = audio_node_query.get(pulse.original_entity).unwrap();
+
+    // check if the chain is already setup.
+    match graph.get_chain_mut()[audio_node.idx.unwrap()].t.as_mut() {
+        ChainType::ChainList(ref mut l) => match gnode.get_node().name {
+            NodeVarient::LuaRead => {
+                info!("inserting pulse");
+
+                let osc = Read;
+                l.push(TChain::vec(
+                    vec![TChain::dsp(Dsp::Read(osc), Some(entity))],
+                    Some(entity),
+                ));
+            }
+            NodeVarient::AudioProd => {
+                info!("inserting pulse");
+                l.push(TChain::vec(
+                    vec![TChain::dsp(Dsp::Output, Some(entity))],
+                    Some(entity),
+                ));
+            }
+            NodeVarient::LuaPulse => panic!("cannot lua pulse to an existing chain."),
+            _ => panic!("not recognized sound node."),
+        },
+        // expected chain type here. creating a new chain.
+        _ => {}
     }
 }
 

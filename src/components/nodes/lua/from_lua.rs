@@ -409,6 +409,7 @@ impl<'lua> FromLua<'lua> for NodeVarient {
             rlua::Value::String(str) => Ok(match str.to_str()? {
                 "lua_read" => NodeVarient::LuaRead,
                 "lua_pulse" => NodeVarient::LuaPulse,
+                "audio_out" => NodeVarient::AudioOut,
                 s => NodeVarient::Custom(s.to_string()),
             }),
             rlua::Value::Nil => Ok(NodeVarient::None),
@@ -426,6 +427,7 @@ impl<'lua> ToLua<'lua> for NodeVarient {
         match self {
             NodeVarient::LuaRead => Ok("lua_read".to_lua(ctx)?),
             NodeVarient::LuaPulse => Ok("lua_pulse".to_lua(ctx)?),
+            NodeVarient::AudioOut => Ok("audio_out".to_lua(ctx)?),
             NodeVarient::Custom(s) => Ok(s.to_lua(ctx)?),
             NodeVarient::None => Ok(rlua::Value::Nil),
             _ => Ok("None".to_lua(ctx)?),

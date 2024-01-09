@@ -17,4 +17,4 @@ xy_rad = 3.0
 grid_offset_x = 25.0
 grid_offset_y = 35.0
 
-grid_widget_scale = 1.5
+grid_widget_scale = 1.0

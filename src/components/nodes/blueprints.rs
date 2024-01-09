@@ -47,6 +47,14 @@ pub fn init_temp_blueprints(mut commands: Commands, asset_server: Res<AssetServe
         "lua_read".to_string(),
         Position::new(1, 0),
     );
+
+    load_node(
+        &mut commands,
+        &asset_server,
+        ChannelType::Terminator,
+        "audio_out".to_string(),
+        Position::new(2, 0),
+    );
 }
 
 // TODO: cleanup
@@ -263,6 +271,54 @@ pub fn load_native_node_transmitter(
     ));
 }
 
+pub fn load_native_node_terminator(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    name: String,
+    pos: Position,
+) {
+    // base logic
+    let base_node_handle: Handle<LuaAsset> = asset_server.load("lua/common/node.lua");
+    let base_instrument_node_handle: Handle<LuaAsset> =
+        asset_server.load("lua/common/terminator/node.lua");
+
+    // custom logic
+    let lua_node_handle: Handle<LuaAsset> =
+        asset_server.load(format!("lua/nodes/terminator/{}/node.lua", name));
+
+    let lua = init_instance();
+
+    commands.spawn((
+        GenericNode::Native(NativeNode {
+            node: Node {
+                pos,
+                ..Default::default()
+            },
+            data: NodeData {
+                ..Default::default()
+            },
+            lua: Some(Mutex::new(lua)),
+            handles: Some(vec![
+                LuaHandle {
+                    ltype: LuaType::Node,
+                    handle: base_node_handle,
+                },
+                LuaHandle {
+                    ltype: LuaType::Node,
+                    handle: base_instrument_node_handle,
+                },
+                LuaHandle {
+                    ltype: LuaType::Node,
+                    handle: lua_node_handle,
+                },
+            ]),
+        }),
+        IsLuaNode,
+        NotSetup,
+        NodeBP,
+    ));
+}
+
 pub fn load_node(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -276,6 +332,9 @@ pub fn load_node(
         }
         ChannelType::Transmitter => {
             load_native_node_transmitter(commands, asset_server, name, pos);
+        }
+        ChannelType::Terminator => {
+            load_native_node_terminator(commands, asset_server, name, pos);
         }
     }
 }

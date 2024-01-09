@@ -1,7 +1,7 @@
 use bevy::ecs::{event::Event, entity::Entity};
 
 #[derive(Event)]
-pub struct AudioNodeChangeEvent {
+pub struct AudioNodePulseEvent {
     pub entity: Entity,
     pub slot_idx: usize,
 }

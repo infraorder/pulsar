@@ -79,6 +79,7 @@ impl AudioOutput {
                 AudioSend::Oscillator(stream) => {
                     chain_out.push(self.push(stream, chain_out.last()))
                 }
+                AudioSend::Output => todo!(),
             }
         }
 
@@ -95,8 +96,6 @@ impl AudioOutput {
         };
 
         let id = knyst_commands().push(stream, inputs);
-
-        let g = Graph::new(GraphSettings::default()); // TODO RETURN HERE
 
         id
     }
@@ -151,6 +150,7 @@ fn play_audio(
             .map(|i| match i {
                 Dsp::Input(i) => i.to_stream(&lua_assets),
                 Dsp::Read(i) => i.to_stream(&lua_assets),
+                Dsp::Output => Some(AudioSendControl::Output),
             })
             .map(|i| i.unwrap()) // TODO: handle None by failing entire chain
             .fold((vec![], vec![]), |mut res, i| {
@@ -163,6 +163,11 @@ fn play_audio(
                     AudioSendControl::Oscillator((stream, control)) => {
                         res.0.push(Box::new(AudioSend::Oscillator(stream)));
                         res.1.push(AC::Oscillator(control));
+                    }
+
+                    AudioSendControl::Output => {
+                        res.0.push(Box::new(AudioSend::Output));
+                        res.1.push(AC::Output);
                     }
                 }
 
@@ -189,6 +194,7 @@ fn play_audio(
                         .entity(entity)
                         .insert((AudioId(node_address), AudioControl::<Oscillator>(control)));
                 }
+                AC::Output => todo!(),
             });
     }
 }
